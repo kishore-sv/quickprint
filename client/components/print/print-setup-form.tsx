@@ -1,0 +1,885 @@
+"use client";
+
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Check, Minus, Plus, Search } from "lucide-react";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Carousel,
+  CarouselContent,
+  CarouselItem,
+  CarouselNext,
+  CarouselPrevious,
+  type CarouselApi,
+} from "@/components/ui/carousel";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Spinner } from "@/components/ui/spinner";
+import {
+  renderPdfPagePreview,
+  renderPdfPageThumbnail,
+} from "@/lib/pdf-page-thumbnails";
+import {
+  estimatePrintPricePaise,
+  estimatePrintSeconds,
+  filterPagesByPageSet,
+  formatPageRange,
+  formatRupees,
+  parsePageRange,
+} from "@/lib/print-pricing";
+import type { PricingConfig, PrintSettings, SavedFile } from "@/lib/types";
+import { pageMaxWidthClass } from "@/lib/layout";
+import { cn } from "@/lib/utils";
+
+/** Space above bottom tab bar (matches BottomNav). */
+const BOTTOM_NAV_CLEARANCE =
+  "calc(4.5rem + env(safe-area-inset-bottom))";
+
+const COPY_PRESETS = [1, 2, 5, 10, 25, 50] as const;
+const MAX_COPIES = 100;
+
+const NUP_OPTIONS = [
+  { value: 1, label: "1 (normal)" },
+  { value: 2, label: "2" },
+  { value: 4, label: "4" },
+] as const;
+
+export type PrintFileDraft = {
+  file: File;
+  pageCount: number;
+  savedFile: SavedFile | null;
+  selectedPages: Set<number>;
+};
+
+type PrintSetupFormProps = {
+  drafts: PrintFileDraft[];
+  fileIndex: number;
+  onFileIndexChange: (index: number) => void;
+  onSelectedPagesChange: (index: number, pages: Set<number>) => void;
+  settings: PrintSettings;
+  onSettingsChange: (settings: PrintSettings) => void;
+  applySettingsToAll: boolean;
+  onApplySettingsToAllChange: (value: boolean) => void;
+  pricing: PricingConfig | null;
+  submitting: boolean;
+  onSubmit: () => void;
+};
+
+function allPagesSet(pageCount: number) {
+  return new Set(Array.from({ length: pageCount }, (_, i) => i + 1));
+}
+
+function SidesIcon({ duplex }: { duplex: "SINGLE" | "DOUBLE" }) {
+  return (
+    <div className="flex h-14 w-10 flex-col items-center justify-center gap-0.5 rounded border border-border/80 bg-muted/40 p-1">
+      {duplex === "SINGLE" ? (
+        <div className="h-full w-full rounded-sm bg-background shadow-sm" />
+      ) : (
+        <>
+          <div className="h-[46%] w-full rounded-sm bg-background shadow-sm" />
+          <div className="h-[46%] w-full rounded-sm bg-background shadow-sm" />
+        </>
+      )}
+    </div>
+  );
+}
+
+export function PrintSetupForm({
+  drafts,
+  fileIndex,
+  onFileIndexChange,
+  onSelectedPagesChange,
+  settings,
+  onSettingsChange,
+  applySettingsToAll,
+  onApplySettingsToAllChange,
+  pricing,
+  submitting,
+  onSubmit,
+}: PrintSetupFormProps) {
+  const draft = drafts[fileIndex];
+  const pageCount = draft?.pageCount ?? 0;
+  const selectedPages = draft?.selectedPages ?? new Set<number>();
+
+  const [thumbnails, setThumbnails] = useState<Record<number, string>>({});
+  const [thumbsLoading, setThumbsLoading] = useState(false);
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [previewStartIndex, setPreviewStartIndex] = useState(0);
+  const [previewImages, setPreviewImages] = useState<Record<number, string>>({});
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const [carouselPage, setCarouselPage] = useState(1);
+  const [carouselApi, setCarouselApi] = useState<CarouselApi>();
+  const [copiesInput, setCopiesInput] = useState(() => String(settings.copies));
+  const copiesEditingRef = useRef(false);
+
+  useEffect(() => {
+    if (!copiesEditingRef.current) {
+      setCopiesInput(String(settings.copies));
+    }
+  }, [settings.copies]);
+
+  useEffect(() => {
+    if (!draft?.file || pageCount < 1) return;
+    let cancelled = false;
+    setThumbsLoading(true);
+    setThumbnails({});
+    void (async () => {
+      const next: Record<number, string> = {};
+      for (let p = 1; p <= pageCount; p++) {
+        if (cancelled) return;
+        next[p] = await renderPdfPageThumbnail(draft.file, p, 112);
+      }
+      if (!cancelled) {
+        setThumbnails(next);
+        setThumbsLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [draft?.file, pageCount]);
+
+  const openPreview = useCallback((page: number) => {
+    setPreviewStartIndex(page - 1);
+    setCarouselPage(page);
+    setPreviewOpen(true);
+  }, []);
+
+  useEffect(() => {
+    if (!previewOpen || !draft?.file || pageCount < 1) return;
+    let cancelled = false;
+    setPreviewLoading(true);
+    setPreviewImages({});
+    void (async () => {
+      const narrow = window.innerWidth < 640;
+      const maxCssWidth = Math.floor(window.innerWidth * (narrow ? 0.94 : 0.82));
+      const maxCssHeight = Math.floor(window.innerHeight * (narrow ? 0.68 : 0.78));
+      const next: Record<number, string> = {};
+      for (let p = 1; p <= pageCount; p++) {
+        if (cancelled) return;
+        next[p] = await renderPdfPagePreview(
+          draft.file,
+          p,
+          maxCssWidth,
+          maxCssHeight
+        );
+      }
+      if (!cancelled) {
+        setPreviewImages(next);
+        setPreviewLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [previewOpen, draft?.file, pageCount]);
+
+  useEffect(() => {
+    if (!carouselApi) return;
+    const onSelect = () => {
+      setCarouselPage(carouselApi.selectedScrollSnap() + 1);
+    };
+    onSelect();
+    carouselApi.on("select", onSelect);
+    return () => {
+      carouselApi.off("select", onSelect);
+    };
+  }, [carouselApi]);
+
+  useEffect(() => {
+    if (!carouselApi || !previewOpen) return;
+    carouselApi.scrollTo(previewStartIndex, true);
+  }, [carouselApi, previewOpen, previewStartIndex]);
+
+  const updateSelectedPages = useCallback(
+    (next: Set<number>) => {
+      onSelectedPagesChange(fileIndex, next);
+      const range = formatPageRange([...next].sort((a, b) => a - b), pageCount);
+      onSettingsChange({ ...settings, page_range: range || "all" });
+    },
+    [fileIndex, onSelectedPagesChange, onSettingsChange, pageCount, settings]
+  );
+
+  const togglePage = (page: number) => {
+    const next = new Set(selectedPages);
+    if (next.has(page)) {
+      if (next.size > 1) next.delete(page);
+    } else {
+      next.add(page);
+    }
+    updateSelectedPages(next);
+  };
+
+  const selectAllPages = () => updateSelectedPages(allPagesSet(pageCount));
+  const clearPages = () => updateSelectedPages(new Set([1]));
+
+  const setCopies = (copies: number) => {
+    const clamped = Math.min(MAX_COPIES, Math.max(1, copies));
+    onSettingsChange({ ...settings, copies: clamped });
+  };
+
+  const commitCopiesInput = () => {
+    copiesEditingRef.current = false;
+    const trimmed = copiesInput.trim();
+    if (trimmed === "") {
+      setCopies(1);
+      setCopiesInput("1");
+      return;
+    }
+    const n = parseInt(trimmed, 10);
+    if (Number.isNaN(n)) {
+      setCopies(1);
+      setCopiesInput("1");
+      return;
+    }
+    setCopies(n);
+    setCopiesInput(String(Math.min(MAX_COPIES, Math.max(1, n))));
+  };
+
+  const handleCopiesInputChange = (value: string) => {
+    const digits = value.replace(/\D/g, "");
+    if (digits === "") {
+      setCopiesInput("");
+      return;
+    }
+    const n = Math.min(MAX_COPIES, parseInt(digits, 10));
+    setCopiesInput(String(n));
+    setCopies(n);
+  };
+
+  const price = useMemo(() => {
+    if (!pricing || pageCount < 1 || selectedPages.size === 0) {
+      return { physicalSheets: 0, pagesInRange: 0, totalPaise: 0 };
+    }
+    const effective = filterPagesByPageSet([...selectedPages], settings.page_set);
+    if (effective.length === 0) {
+      return { physicalSheets: 0, pagesInRange: 0, totalPaise: 0 };
+    }
+    const range =
+      effective.length === pageCount && settings.page_set === "ALL"
+        ? "all"
+        : formatPageRange(effective, pageCount);
+    return estimatePrintPricePaise({
+      pageCount,
+      pageRange: range,
+      pagesPerSheet: settings.pages_per_sheet,
+      duplex: settings.duplex,
+      copies: settings.copies,
+      bwPerSheetPaise: pricing.bw_per_sheet_paise,
+    });
+  }, [pricing, pageCount, selectedPages, settings]);
+
+  const effectivePageCount = useMemo(
+    () => filterPagesByPageSet([...selectedPages], settings.page_set).length,
+    [selectedPages, settings.page_set]
+  );
+
+  const bwRate = pricing?.bw_per_sheet_rupees ?? 2;
+  const duplexDisplayRate =
+    pricing != null
+      ? (pricing.bw_per_sheet_paise * 1.5) / 100
+      : 3;
+
+  const selectionLabel =
+    selectedPages.size === pageCount
+      ? `All ${pageCount} pages`
+      : `${selectedPages.size} of ${pageCount} pages`;
+
+  const otherFiles = drafts.length - 1;
+  const estSeconds = estimatePrintSeconds(effectivePageCount, settings.copies);
+
+  if (!draft) return null;
+
+  return (
+    <>
+    <div
+      className="relative flex w-full min-w-0 max-w-full flex-col gap-5 overflow-x-hidden"
+      style={{ paddingBottom: `calc(${BOTTOM_NAV_CLEARANCE} + 5.5rem)` }}
+    >
+      <div className="min-w-0 space-y-1">
+        <p className="text-sm text-muted-foreground">
+          File {fileIndex + 1} of {drafts.length}
+        </p>
+        <h1 className="break-all text-xl font-semibold leading-snug tracking-tight">
+          {draft.file.name}
+        </h1>
+        <p className="text-sm text-muted-foreground">{pageCount} pages</p>
+      </div>
+
+      {otherFiles > 0 && (
+        <Accordion className="rounded-xl border bg-card px-3">
+          <AccordionItem value="files" className="border-0">
+            <AccordionTrigger className="gap-2 py-3 hover:no-underline [&>svg]:ml-auto">
+              <span className="min-w-0 flex-1 text-left font-medium">
+                {otherFiles} more file{otherFiles > 1 ? "s" : ""} to set up
+              </span>
+              <Badge variant="secondary" className="shrink-0 font-normal">
+                optional
+              </Badge>
+            </AccordionTrigger>
+            <AccordionContent className="space-y-2 pb-3">
+              {drafts.map((d, i) => (
+                <Button
+                  key={d.savedFile?.id ?? `${d.file.name}-${i}`}
+                  type="button"
+                  variant={i === fileIndex ? "secondary" : "ghost"}
+                  className="h-auto w-full justify-start py-2 text-left font-normal"
+                  onClick={() => onFileIndexChange(i)}
+                >
+                  <span className="truncate">
+                    {i + 1}. {d.file.name}
+                  </span>
+                </Button>
+              ))}
+            </AccordionContent>
+          </AccordionItem>
+        </Accordion>
+      )}
+
+      <section className="min-w-0 space-y-3">
+        <div className="flex flex-col gap-1 sm:flex-row sm:items-baseline sm:justify-between">
+          <h2 className="text-base font-semibold">Pages to print</h2>
+          <span className="text-xs text-muted-foreground">tap to include or exclude</span>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <Button type="button" variant="outline" size="sm" onClick={selectAllPages}>
+            Select all
+          </Button>
+          <Button type="button" variant="outline" size="sm" onClick={clearPages}>
+            Clear
+          </Button>
+          <span className="w-full text-sm text-muted-foreground sm:ml-auto sm:w-auto">
+            {selectionLabel}
+          </span>
+        </div>
+
+        <div className="-mx-4 min-w-0 w-auto overflow-x-auto px-4 pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [touch-action:pan-x] [&::-webkit-scrollbar]:hidden">
+          <div className="flex w-max min-w-full gap-3">
+          {thumbsLoading &&
+            Array.from({ length: Math.min(pageCount, 4) }).map((_, i) => (
+              <Skeleton key={i} className="h-[148px] w-[108px] shrink-0 rounded-xl" />
+            ))}
+          {!thumbsLoading &&
+            Array.from({ length: pageCount }, (_, i) => i + 1).map((page) => {
+              const active = selectedPages.has(page);
+              return (
+                <div
+                  key={page}
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => togglePage(page)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      togglePage(page);
+                    }
+                  }}
+                  className={cn(
+                    "relative shrink-0 cursor-pointer overflow-hidden rounded-xl border-2 bg-muted/30 text-left transition-colors",
+                    active ? "border-primary" : "border-transparent opacity-70"
+                  )}
+                >
+                  {active && (
+                    <span
+                      className="absolute left-2 top-2 z-10 flex size-6 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-sm"
+                      aria-hidden
+                    >
+                      <Check className="size-3.5" strokeWidth={3} />
+                    </span>
+                  )}
+                  {thumbnails[page] ? (
+                    <img
+                      src={thumbnails[page]}
+                      alt={`Page ${page}`}
+                      className="h-[140px] w-[100px] bg-white object-contain object-top"
+                    />
+                  ) : (
+                    <div className="flex h-[140px] w-[100px] items-center justify-center bg-muted">
+                      <Spinner className="size-5" />
+                    </div>
+                  )}
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    size="icon-sm"
+                    className="absolute bottom-2 left-2 size-7 rounded-full bg-background/90 shadow-sm"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      void openPreview(page);
+                    }}
+                    aria-label={`Preview page ${page}`}
+                  >
+                    <Search className="size-3.5" />
+                  </Button>
+                  <span
+                    className="absolute bottom-2 right-2 flex size-6 items-center justify-center rounded-full bg-background/90 text-xs font-medium shadow-sm"
+                  >
+                    {page}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </section>
+
+      <section className="min-w-0 space-y-3">
+        <div className="flex items-baseline justify-between gap-2">
+          <h2 className="text-base font-semibold">Copies</h2>
+          <span className="shrink-0 text-xs text-muted-foreground">1 – {MAX_COPIES}</span>
+        </div>
+        <div className="flex items-center gap-1.5 rounded-xl bg-muted/50 p-2 sm:gap-2 sm:p-3">
+          <Button
+            type="button"
+            variant="outline"
+            size="icon-lg"
+            className="size-10 shrink-0 rounded-xl bg-background sm:size-12"
+            onClick={() => setCopies(settings.copies - 1)}
+            disabled={settings.copies <= 1}
+            aria-label="Fewer copies"
+          >
+            <Minus className="size-5" />
+          </Button>
+          <div className="flex min-w-0 flex-1 items-center justify-center px-1">
+            <Input
+              type="text"
+              inputMode="numeric"
+              autoComplete="off"
+              aria-label="Number of copies"
+              min={1}
+              max={MAX_COPIES}
+              className="h-14 w-full min-w-0 max-w-none flex-1 border-0 bg-transparent px-0 text-center text-lg leading-none font-semibold tracking-tight tabular-nums shadow-none focus-visible:border-transparent focus-visible:ring-0 sm:h-16 sm:text-5xl md:text-6xl"
+              value={copiesInput}
+              onFocus={() => {
+                copiesEditingRef.current = true;
+              }}
+              onChange={(e) => handleCopiesInputChange(e.target.value)}
+              onBlur={commitCopiesInput}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.currentTarget.blur();
+                }
+              }}
+            />
+          </div>
+          <Button
+            type="button"
+            variant="outline"
+            size="icon-lg"
+            className="size-10 shrink-0 rounded-xl bg-background sm:size-12"
+            onClick={() => setCopies(settings.copies + 1)}
+            disabled={settings.copies >= MAX_COPIES}
+            aria-label="More copies"
+          >
+            <Plus className="size-5" />
+          </Button>
+        </div>
+        <div className="grid grid-cols-6 gap-1.5 sm:gap-2">
+          {COPY_PRESETS.map((n) => (
+            <Button
+              key={n}
+              type="button"
+              size="sm"
+              variant={settings.copies === n ? "default" : "outline"}
+              className={cn(
+                "min-w-0 rounded-lg px-0",
+                settings.copies === n && "shadow-sm"
+              )}
+              onClick={() => setCopies(n)}
+            >
+              {n}
+            </Button>
+          ))}
+        </div>
+      </section>
+
+      <section className="min-w-0 space-y-3">
+        <div className="flex items-baseline justify-between gap-2">
+          <h2 className="text-base font-semibold">Sides</h2>
+          <span className="shrink-0 text-xs text-muted-foreground">per sheet</span>
+        </div>
+        <div className="grid min-w-0 grid-cols-2 gap-2 sm:gap-3">
+          {(
+            [
+              { value: "SINGLE" as const, label: "Single side", rate: bwRate },
+              { value: "DOUBLE" as const, label: "Both sides", rate: duplexDisplayRate },
+            ] as const
+          ).map((opt) => {
+            const selected = settings.duplex === opt.value;
+            return (
+              <button
+                key={opt.value}
+                type="button"
+                onClick={() => onSettingsChange({ ...settings, duplex: opt.value })}
+                className={cn(
+                  "flex min-w-0 flex-col items-center gap-2 rounded-xl border-2 px-2 py-3 text-center transition-colors sm:px-3 sm:py-4",
+                  selected
+                    ? "border-primary bg-primary/5"
+                    : "border-border bg-card hover:bg-muted/40"
+                )}
+              >
+                <SidesIcon duplex={opt.value} />
+                <span className="text-sm font-medium">{opt.label}</span>
+                <span className="text-xs text-muted-foreground">
+                  ₹{opt.rate.toFixed(2)} / sheet
+                </span>
+              </button>
+            );
+          })}
+        </div>
+        <p className="text-center text-xs text-muted-foreground">
+          Both sides uses half the paper - usually cheaper for long documents.
+        </p>
+      </section>
+
+      <section className="space-y-2">
+        <h2 className="text-base font-semibold">Colour</h2>
+        <div className="rounded-xl border border-primary/20 bg-primary/5 px-3 py-3 text-sm text-primary sm:px-4">
+          Black &amp; white only. Colour printing is unavailable at the moment.
+        </div>
+      </section>
+
+      <Accordion multiple className="min-w-0 space-y-0 rounded-xl border bg-card px-3">
+        <AccordionItem value="advanced" className="border-b">
+          <AccordionTrigger className="flex-wrap gap-x-2 gap-y-0.5 py-3.5 hover:no-underline [&>svg]:ml-auto">
+            <span className="font-medium">Advanced options</span>
+            <span className="w-full text-xs text-muted-foreground sm:mr-2 sm:w-auto sm:text-right">
+              page range, N-up, quality
+            </span>
+          </AccordionTrigger>
+          <AccordionContent className="space-y-4 pb-4">
+            <div className="space-y-2">
+              <Label htmlFor="page-range-advanced">Page range</Label>
+              <p className="text-xs text-muted-foreground">
+                Same as the page picker above
+              </p>
+              <Input
+                id="page-range-advanced"
+                placeholder="All pages — or 1-3,5,7-9"
+                value={
+                  settings.page_range === "all" ? "" : settings.page_range
+                }
+                onChange={(e) => {
+                  const raw = e.target.value;
+                  const value = raw.trim();
+                  if (value === "" || value.toLowerCase() === "all") {
+                    onSettingsChange({ ...settings, page_range: "all" });
+                    updateSelectedPages(allPagesSet(pageCount));
+                    return;
+                  }
+                  onSettingsChange({ ...settings, page_range: value });
+                  const parsed = parsePageRange(value, pageCount);
+                  if (parsed.length > 0) {
+                    onSelectedPagesChange(fileIndex, new Set(parsed));
+                  }
+                }}
+                onBlur={(e) => {
+                  const value = e.target.value.trim();
+                  if (value === "" || value.toLowerCase() === "all") {
+                    onSettingsChange({ ...settings, page_range: "all" });
+                    updateSelectedPages(allPagesSet(pageCount));
+                    return;
+                  }
+                  const parsed = parsePageRange(value, pageCount);
+                  if (parsed.length === 0) {
+                    onSettingsChange({ ...settings, page_range: "all" });
+                    updateSelectedPages(allPagesSet(pageCount));
+                    return;
+                  }
+                  const range = formatPageRange(parsed, pageCount);
+                  onSettingsChange({ ...settings, page_range: range });
+                  onSelectedPagesChange(fileIndex, new Set(parsed));
+                }}
+              />
+            </div>
+
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              <div className="space-y-2">
+                <Label htmlFor="nup">Pages per sheet</Label>
+                <Select
+                  value={String(settings.pages_per_sheet)}
+                  onValueChange={(v) =>
+                    onSettingsChange({ ...settings, pages_per_sheet: Number(v) })
+                  }
+                >
+                  <SelectTrigger id="nup" className="w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {NUP_OPTIONS.map((opt) => (
+                      <SelectItem key={opt.value} value={String(opt.value)}>
+                        {opt.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="page-set">Page set</Label>
+                <Select
+                  value={settings.page_set}
+                  onValueChange={(v) =>
+                    onSettingsChange({
+                      ...settings,
+                      page_set: v as PrintSettings["page_set"],
+                    })
+                  }
+                >
+                  <SelectTrigger id="page-set" className="w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="ALL">All pages</SelectItem>
+                    <SelectItem value="ODD">Odd pages</SelectItem>
+                    <SelectItem value="EVEN">Even pages</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="print-order">Order</Label>
+                <Select
+                  value={settings.order}
+                  onValueChange={(v) =>
+                    onSettingsChange({
+                      ...settings,
+                      order: v as PrintSettings["order"],
+                    })
+                  }
+                >
+                  <SelectTrigger id="print-order" className="w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="NORMAL">Normal</SelectItem>
+                    <SelectItem value="REVERSE">Reverse</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="orientation">Orientation</Label>
+                <Select
+                  value={settings.orientation}
+                  onValueChange={(v) =>
+                    onSettingsChange({
+                      ...settings,
+                      orientation: v as PrintSettings["orientation"],
+                    })
+                  }
+                >
+                  <SelectTrigger id="orientation" className="w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="AUTO">Auto (use document)</SelectItem>
+                    <SelectItem value="PORTRAIT">Portrait</SelectItem>
+                    <SelectItem value="LANDSCAPE">Landscape</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="print-quality">Quality</Label>
+              <Select
+                value={settings.quality}
+                onValueChange={(v) =>
+                  onSettingsChange({
+                    ...settings,
+                    quality: v as PrintSettings["quality"],
+                  })
+                }
+              >
+                <SelectTrigger id="print-quality" className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="NORMAL">Normal</SelectItem>
+                  <SelectItem value="DRAFT">Draft</SelectItem>
+                  <SelectItem value="BEST">Best</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="flex flex-wrap gap-x-8 gap-y-3">
+              <label className="flex cursor-pointer items-center gap-2.5 text-sm">
+                <Checkbox
+                  checked={settings.fit_to_page}
+                  onCheckedChange={(c) =>
+                    onSettingsChange({ ...settings, fit_to_page: c === true })
+                  }
+                />
+                Fit to page
+              </label>
+              <label className="flex cursor-pointer items-center gap-2.5 text-sm">
+                <Checkbox
+                  checked={settings.collate}
+                  onCheckedChange={(c) =>
+                    onSettingsChange({ ...settings, collate: c === true })
+                  }
+                />
+                Collate copies
+              </label>
+            </div>
+          </AccordionContent>
+        </AccordionItem>
+        <AccordionItem value="preset" className="border-0">
+          <AccordionTrigger className="flex-wrap gap-x-2 gap-y-0.5 py-3.5 hover:no-underline [&>svg]:ml-auto">
+            <span className="font-medium">Save as preset</span>
+            <span className="w-full text-xs text-muted-foreground sm:mr-2 sm:w-auto sm:text-right">
+              reuse these settings
+            </span>
+          </AccordionTrigger>
+          <AccordionContent className="pb-4 text-sm text-muted-foreground">
+            Presets are coming soon — your current choices apply to this print job.
+          </AccordionContent>
+        </AccordionItem>
+      </Accordion>
+
+      {otherFiles > 0 && (
+        <label
+          className="flex cursor-pointer items-start gap-3 rounded-xl border border-primary/15 bg-primary/5 px-4 py-3"
+        >
+          <Checkbox
+            checked={applySettingsToAll}
+            onCheckedChange={(c) => onApplySettingsToAllChange(c === true)}
+            className="mt-0.5"
+          />
+          <div className="space-y-0.5">
+            <p className="text-sm font-medium leading-snug">
+              Use these settings for the other {otherFiles} file
+              {otherFiles > 1 ? "s" : ""} too
+            </p>
+            <p className="text-xs text-muted-foreground">Page selection stays per file.</p>
+          </div>
+        </label>
+      )}
+
+      <Dialog
+        open={previewOpen}
+        onOpenChange={(open) => {
+          setPreviewOpen(open);
+          if (!open) setPreviewImages({});
+        }}
+      >
+        <DialogContent
+          className={cn(
+            "flex flex-col gap-1 overflow-hidden p-2 sm:gap-2",
+            "w-[calc(100vw-1rem)] max-w-[calc(100vw-1rem)]",
+            "max-sm:top-auto max-sm:right-0 max-sm:bottom-0 max-sm:left-0 max-sm:h-[min(88dvh,100%)] max-sm:max-h-[88dvh] max-sm:translate-x-0 max-sm:translate-y-0 max-sm:rounded-b-none max-sm:rounded-t-2xl",
+            "sm:max-h-[92dvh] sm:w-full sm:max-w-4xl md:max-w-5xl"
+          )}
+        >
+          <DialogHeader className="shrink-0 px-1 pr-8">
+            <DialogTitle className="text-sm sm:text-base">
+              Page {carouselPage} of {pageCount}
+            </DialogTitle>
+          </DialogHeader>
+          <div
+            className={cn(
+              "relative min-h-0 w-full px-6 sm:px-10",
+              "h-[calc(88dvh-3.75rem)] max-sm:shrink-0",
+              "sm:h-[min(72dvh,680px)] sm:max-h-[calc(92dvh-4.5rem)]"
+            )}
+          >
+            {previewLoading ? (
+              <div className="flex h-full items-center justify-center">
+                <Spinner className="size-8" />
+              </div>
+            ) : (
+              <Carousel
+                key={`${draft.file.name}-${previewStartIndex}-${previewOpen}`}
+                setApi={setCarouselApi}
+                opts={{ startIndex: previewStartIndex, align: "center" }}
+                className="absolute inset-0 h-full w-full"
+              >
+                <CarouselContent className="-ml-2 h-full">
+                  {Array.from({ length: pageCount }, (_, i) => i + 1).map((page) => (
+                    <CarouselItem key={page} className="h-full pl-2">
+                      <div className="h-full w-full overflow-y-auto overscroll-contain rounded-lg border bg-white [-webkit-overflow-scrolling:touch]">
+                        <div className="flex min-h-full justify-center p-2">
+                          {previewImages[page] ? (
+                            <img
+                              src={previewImages[page]}
+                              alt={`Page ${page}`}
+                              className="block h-auto w-full max-w-full object-contain"
+                            />
+                          ) : (
+                            <Skeleton className="aspect-[1/1.414] w-full max-w-md" />
+                          )}
+                        </div>
+                      </div>
+                    </CarouselItem>
+                  ))}
+                </CarouselContent>
+                <CarouselPrevious className="left-1 size-8 sm:left-2 sm:size-9" />
+                <CarouselNext className="right-1 size-8 sm:right-2 sm:size-9" />
+              </Carousel>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+    </div>
+
+    <div
+      className="pointer-events-none fixed inset-x-0 z-40 px-4"
+      style={{ bottom: BOTTOM_NAV_CLEARANCE }}
+    >
+      <div className={cn("pointer-events-auto mx-auto w-full", pageMaxWidthClass)}>
+        <div
+          className="flex w-full min-w-0 items-center justify-between gap-3 rounded-2xl bg-zinc-900 px-3 py-3 text-white shadow-lg sm:px-4"
+        >
+          <div className="min-w-0 flex-1">
+            <p className="text-xs text-zinc-400">Total</p>
+            <p className="text-xl font-semibold tabular-nums sm:text-2xl">
+              ₹{formatRupees(price.totalPaise)}
+            </p>
+            <p className="truncate text-[11px] text-zinc-400 sm:text-xs">
+              {price.physicalSheets} sheets · {price.pagesInRange} pages · {estSeconds} sec
+            </p>
+          </div>
+          <Button
+            type="button"
+            size="lg"
+            className="h-auto shrink-0 rounded-xl px-3 py-2.5 text-sm sm:px-5 sm:py-3 sm:text-base"
+            disabled={submitting || selectedPages.size === 0}
+            onClick={onSubmit}
+          >
+            {submitting ? (
+              <>
+                <Spinner className="size-4" />
+                Sending…
+              </>
+            ) : (
+              "Send to print"
+            )}
+          </Button>
+        </div>
+      </div>
+    </div>
+    </>
+  );
+}

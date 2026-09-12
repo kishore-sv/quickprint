@@ -1,0 +1,13 @@
+process.env.DATABASE_URL ??= "postgresql://user:pass@localhost:5432/quickprint_test";
+process.env.BETTER_AUTH_SECRET ??= "test-secret-test-secret-test-secret";
+process.env.BETTER_AUTH_URL ??= "http://localhost:8000";
+process.env.FRONTEND_URL ??= "http://localhost:3000";
+process.env.CORS_ORIGINS ??= "http://localhost:3000";
+process.env.S3_ENDPOINT ??= "https://example.com";
+process.env.S3_REGION ??= "ap-south-1";
+process.env.S3_ACCESS_KEY_ID ??= "test";
+process.env.S3_SECRET_ACCESS_KEY ??= "test";
+process.env.S3_BUCKET_NAME ??= "test";
+process.env.RAZORPAY_KEY_ID ??= "rzp_test";
+process.env.RAZORPAY_KEY_SECRET ??= "test_secret";
+process.env.NODE_ENV ??= "test";

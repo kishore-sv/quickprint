@@ -1,0 +1,86 @@
+import { z } from "zod";
+
+const envSchema = z.object({
+  DATABASE_URL: z.string().min(1),
+  BETTER_AUTH_SECRET: z.string().min(1),
+  BETTER_AUTH_URL: z.string().url(),
+  GOOGLE_CLIENT_ID: z.string().optional(),
+  GOOGLE_CLIENT_SECRET: z.string().optional(),
+  FRONTEND_URL: z.string().url(),
+  CORS_ORIGINS: z.string().default("http://localhost:3000"),
+  S3_ENDPOINT: z.string().min(1),
+  S3_REGION: z.string().default("ap-south-1"),
+  S3_ACCESS_KEY_ID: z.string().min(1),
+  S3_SECRET_ACCESS_KEY: z.string().min(1),
+  S3_BUCKET_NAME: z
+    .string()
+    .min(1)
+    .transform((s) => s.replace(/^["']|["']$/g, "")),
+  RAZORPAY_KEY_ID: z.string().min(1),
+  RAZORPAY_KEY_SECRET: z.string().min(1),
+  RAZORPAY_WEBHOOK_SECRET: z.string().optional(),
+  MAX_UPLOAD_BYTES: z.coerce.number().default(20971520),
+  DEFAULT_BW_SHEET_PAISE: z.coerce.number().default(200),
+  DEFAULT_COLOR_SHEET_PAISE: z.coerce.number().default(300),
+  PRESIGNED_URL_EXPIRES: z.coerce.number().default(3600),
+  NODE_ENV: z.enum(["development", "production", "test"]).default("development"),
+  PORT: z.coerce.number().default(8000),
+});
+
+export type Env = z.infer<typeof envSchema>;
+
+/** Avoid pg-connection-string v2 deprecation warning for sslmode=require (Neon URLs). */
+export function normalizeDatabaseUrl(url: string): string {
+  try {
+    const parsed = new URL(url);
+    const sslMode = parsed.searchParams.get("sslmode");
+    if (sslMode === "require" || sslMode === "prefer" || sslMode === "verify-ca") {
+      parsed.searchParams.set("sslmode", "verify-full");
+    }
+    return parsed.toString();
+  } catch {
+    return url;
+  }
+}
+
+function withStorageAliases(raw: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
+  return {
+    ...raw,
+    S3_ENDPOINT: raw.S3_ENDPOINT ?? raw.SUPABASE_S3_ENDPOINT,
+    S3_REGION: raw.S3_REGION ?? raw.SUPABASE_S3_REGION,
+    S3_ACCESS_KEY_ID: raw.S3_ACCESS_KEY_ID ?? raw.SUPABASE_S3_ACCESS_KEY_ID,
+    S3_SECRET_ACCESS_KEY: raw.S3_SECRET_ACCESS_KEY ?? raw.SUPABASE_S3_SECRET_ACCESS_KEY,
+    S3_BUCKET_NAME: raw.S3_BUCKET_NAME ?? raw.SUPABASE_S3_BUCKET,
+  };
+}
+
+function assertSupabaseS3Keys(accessKeyId: string): void {
+  if (
+    accessKeyId.startsWith("sb_publishable_") ||
+    accessKeyId.startsWith("sb_secret_") ||
+    accessKeyId.startsWith("eyJ")
+  ) {
+    throw new Error(
+      "Invalid S3_ACCESS_KEY_ID: use Storage S3 access keys from Supabase Dashboard → Project Settings → Storage (S3 access keys), not publishable/anon API keys."
+    );
+  }
+}
+
+function loadEnv(): Env {
+  const parsed = envSchema.safeParse(withStorageAliases(process.env));
+  if (!parsed.success) {
+    console.error(parsed.error.flatten().fieldErrors);
+    throw new Error("Invalid environment configuration");
+  }
+  assertSupabaseS3Keys(parsed.data.S3_ACCESS_KEY_ID);
+  return {
+    ...parsed.data,
+    DATABASE_URL: normalizeDatabaseUrl(parsed.data.DATABASE_URL),
+  };
+}
+
+export const env = loadEnv();
+
+export function corsOrigins(): string[] {
+  return env.CORS_ORIGINS.split(",").map((s) => s.trim()).filter(Boolean);
+}
