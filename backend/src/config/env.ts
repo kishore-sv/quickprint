@@ -25,6 +25,10 @@ const envSchema = z.object({
   PRESIGNED_URL_EXPIRES: z.coerce.number().default(3600),
   NODE_ENV: z.enum(["development", "production", "test"]).default("development"),
   PORT: z.coerce.number().default(8000),
+  PI_JOB_DOWNLOAD_EXPIRES: z.coerce.number().optional(),
+  KIOSK_AGENT_TOKEN_PEPPER: z.string().optional(),
+  JOB_STUCK_TIMEOUT_MINUTES: z.coerce.number().default(30),
+  KIOSK_HEARTBEAT_TIMEOUT_SECONDS: z.coerce.number().default(90),
 });
 
 export type Env = z.infer<typeof envSchema>;
@@ -76,6 +80,8 @@ function loadEnv(): Env {
   return {
     ...parsed.data,
     DATABASE_URL: normalizeDatabaseUrl(parsed.data.DATABASE_URL),
+    PI_JOB_DOWNLOAD_EXPIRES:
+      parsed.data.PI_JOB_DOWNLOAD_EXPIRES ?? parsed.data.PRESIGNED_URL_EXPIRES,
   };
 }
 

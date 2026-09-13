@@ -58,6 +58,13 @@ export const printJobs = pgTable(
     printingStartedAt: timestamp("printing_started_at", { withTimezone: true }),
     completedAt: timestamp("completed_at", { withTimezone: true }),
     failedAt: timestamp("failed_at", { withTimezone: true }),
+    dispatchedAt: timestamp("dispatched_at", { withTimezone: true }),
+    printerJobId: varchar("printer_job_id", { length: 128 }),
+    failureReason: varchar("failure_reason", { length: 512 }),
+    piPhase: varchar("pi_phase", { length: 32 }),
+    userErrorCode: varchar("user_error_code", { length: 64 }),
+    cleanupStatus: varchar("cleanup_status", { length: 32 }),
+    lastPiEventAt: timestamp("last_pi_event_at", { withTimezone: true }),
   },
   (t) => [
     index("ix_print_jobs_user_id").on(t.userId),
@@ -65,6 +72,7 @@ export const printJobs = pgTable(
     index("ix_print_jobs_status").on(t.status),
     index("ix_print_jobs_created_at").on(t.createdAt),
     index("ix_print_jobs_kiosk_id").on(t.kioskId),
+    index("ix_print_jobs_kiosk_status_created").on(t.kioskId, t.status, t.createdAt),
     index("ix_print_jobs_saved_file_id").on(t.savedFileId),
   ]
 );

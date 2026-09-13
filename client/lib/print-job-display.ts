@@ -1,25 +1,35 @@
 import type { PrintJob } from "@/lib/types";
-
-const TERMINAL_STATUSES = new Set(["CANCELLED", "FAILED", "COMPLETED", "EXPIRED"]);
+import {
+  isActivePrintJobAtKiosk,
+  isQueuedPrintJob,
+  mapPrintJobStatus,
+  printJobNeedsPayment,
+} from "@/lib/map-print-job-status";
 
 export function jobNeedsPayment(job: PrintJob): boolean {
-  if (job.payment_status === "PAID") return false;
-  return !TERMINAL_STATUSES.has(job.status);
+  return printJobNeedsPayment(job);
 }
 
 export function jobInQueue(job: PrintJob): boolean {
-  if (job.payment_status !== "PAID") return false;
-  if (job.claimed_at) return false;
-  return job.status === "QUEUED" || job.status === "PAID";
+  return isQueuedPrintJob(job);
+}
+
+export function jobAtKiosk(job: PrintJob): boolean {
+  return isActivePrintJobAtKiosk(job);
 }
 
 /** Paid, not yet released at a kiosk — show on Home and Scan */
 export function jobReadyForKioskRelease(job: PrintJob): boolean {
-  return jobInQueue(job);
+  return isQueuedPrintJob(job);
 }
 
 export function isActiveJob(job: PrintJob): boolean {
-  return jobNeedsPayment(job) || jobInQueue(job);
+  const mapped = mapPrintJobStatus(job);
+  return (
+    mapped.status === "AWAITING_PAYMENT" ||
+    mapped.status === "QUEUED" ||
+    isActivePrintJobAtKiosk(job)
+  );
 }
 
 export function formatJobSummary(job: PrintJob): string {

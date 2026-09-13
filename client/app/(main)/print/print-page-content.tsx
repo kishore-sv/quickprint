@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { XIcon } from "lucide-react";
 import Script from "next/script";
 import { Button } from "@/components/ui/button";
@@ -15,6 +15,8 @@ import {
   type PrintFileDraft,
 } from "@/components/print/print-setup-form";
 import { apiFetch, apiFetchPublic, uploadFile } from "@/lib/api";
+import { readKioskContext } from "@/lib/kiosk-context";
+import { mapPrintJobStatus } from "@/lib/map-print-job-status";
 import { imageFileToPdf } from "@/lib/image-to-pdf";
 import { formatPageRange, filterPagesByPageSet, parsePageRange } from "@/lib/print-pricing";
 import {
@@ -103,8 +105,10 @@ function settingsFromJob(j: PrintJob): Partial<PrintSettings> {
 }
 
 export default function PrintPageContent() {
+  const router = useRouter();
   const searchParams = useSearchParams();
   const jobIdFromUrl = searchParams.get("job");
+  const kioskContext = readKioskContext();
 
   const [step, setStep] = useState<Step>("upload");
   const [drafts, setDrafts] = useState<PrintFileDraft[]>([]);
@@ -491,7 +495,8 @@ export default function PrintPageContent() {
             assignJob(updated);
             clearPrintFlowSession();
             activeJobIdRef.current = null;
-            showSuccess("Payment successful — your job is in the queue");
+            showSuccess("Payment successful — scan the kiosk to print");
+            router.push("/scan");
           } catch (err) {
             showError(err instanceof Error ? err.message : "Payment verification failed");
           } finally {
@@ -650,10 +655,8 @@ export default function PrintPageContent() {
               </p>
               {job.payment_status === "PAID" ? (
                 <div className="space-y-3">
-                  <Badge>In queue</Badge>
-                  <p className="text-primary font-medium">
-                    Paid — scan a kiosk QR to release your print
-                  </p>
+                  <Badge>{mapPrintJobStatus(job).label}</Badge>
+                  <p className="text-primary font-medium">Paid — scan the kiosk to print</p>
                   <LinkButton href="/scan" className="w-full">
                     Scan kiosk
                   </LinkButton>
@@ -663,6 +666,9 @@ export default function PrintPageContent() {
                 </div>
               ) : (
                 <>
+                  {kioskContext && (
+                    <p className="text-muted-foreground text-sm">Printing at {kioskContext.name}</p>
+                  )}
                   <p className="text-muted-foreground">Status: {job.payment_status}</p>
                   <Button
                     className="w-full"

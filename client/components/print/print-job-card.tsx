@@ -9,9 +9,11 @@ import { Skeleton } from "@/components/ui/skeleton";
 import {
   formatJobAmount,
   formatJobSummary,
+  jobAtKiosk,
   jobInQueue,
   jobNeedsPayment,
 } from "@/lib/print-job-display";
+import { mapPrintJobStatus } from "@/lib/map-print-job-status";
 import type { PrintJob } from "@/lib/types";
 import { toast } from "@/components/ui/toast";
 
@@ -23,7 +25,9 @@ type PrintJobCardProps = {
 
 export function PrintJobCard({ job, onRemove, removing }: PrintJobCardProps) {
   const needsPayment = jobNeedsPayment(job);
+  const mapped = mapPrintJobStatus(job);
   const inQueue = jobInQueue(job);
+  const atKiosk = jobAtKiosk(job);
   const amount = formatJobAmount(job);
 
   return (
@@ -52,7 +56,9 @@ export function PrintJobCard({ job, onRemove, removing }: PrintJobCardProps) {
             Needs payment
           </Badge>
         )}
-        {inQueue && <Badge>In queue</Badge>}
+        {(inQueue || atKiosk) && (
+          <Badge variant="secondary">{mapped.label}</Badge>
+        )}
 
         <div className="flex flex-wrap gap-2">
           {needsPayment && (
@@ -71,6 +77,11 @@ export function PrintJobCard({ job, onRemove, removing }: PrintJobCardProps) {
                 Remove
               </Button>
             </>
+          )}
+          {atKiosk && (
+            <LinkButton href={`/print/jobs/${job.id}`} size="sm" className="min-w-[5.5rem]">
+              View status
+            </LinkButton>
           )}
           {inQueue && (
             <>

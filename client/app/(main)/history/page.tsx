@@ -15,6 +15,7 @@ import { LinkButton } from "@/components/ui/link-button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "@/components/ui/toast";
 import { apiFetch } from "@/lib/api";
+import { mapPrintJobStatus } from "@/lib/map-print-job-status";
 import type { PrintJob, PrintJobListResponse } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
@@ -71,28 +72,17 @@ type StatusPresentation = {
 };
 
 function jobStatusPresentation(job: PrintJob): StatusPresentation {
-  if (job.payment_status !== "PAID") {
+  const { status, label, isTerminal } = mapPrintJobStatus(job);
+
+  if (status === "AWAITING_PAYMENT") {
     return {
-      label: "Needs payment",
+      label,
       badgeClass:
         "border-transparent bg-orange-100 text-orange-900 hover:bg-orange-100 dark:bg-orange-950/50 dark:text-orange-200",
     };
   }
 
-  if (
-    job.status === "COMPLETED" ||
-    job.status === "EXPIRED" ||
-    job.status === "CANCELLED" ||
-    job.status === "FAILED"
-  ) {
-    const label =
-      job.status === "COMPLETED"
-        ? "Completed"
-        : job.status === "FAILED"
-          ? "Failed"
-          : job.status === "CANCELLED"
-            ? "Cancelled"
-            : "Expired";
+  if (isTerminal) {
     return {
       label,
       badgeClass:
@@ -100,10 +90,18 @@ function jobStatusPresentation(job: PrintJob): StatusPresentation {
     };
   }
 
+  if (status === "QUEUED") {
+    return {
+      label,
+      badgeClass:
+        "border-transparent bg-sky-100 text-sky-900 hover:bg-sky-100 dark:bg-sky-950/50 dark:text-sky-200",
+    };
+  }
+
   return {
-    label: "In queue",
+    label,
     badgeClass:
-      "border-transparent bg-sky-100 text-sky-900 hover:bg-sky-100 dark:bg-sky-950/50 dark:text-sky-200",
+      "border-transparent bg-violet-100 text-violet-900 hover:bg-violet-100 dark:bg-violet-950/50 dark:text-violet-200",
   };
 }
 

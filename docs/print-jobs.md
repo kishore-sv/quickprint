@@ -8,14 +8,14 @@ stateDiagram-v2
   CREATED --> PAYMENT_PENDING: start_payment
   PAYMENT_PENDING --> QUEUED: payment_success
   PAYMENT_PENDING --> FAILED: payment_failed
-  QUEUED --> CLAIMED: release_at_kiosk
-  CLAIMED --> DOWNLOADING: phase2_pi
+  QUEUED --> CLAIMED: ws_job_assigned_or_release
+  CLAIMED --> DOWNLOADING: pi_agent
   DOWNLOADING --> PRINTING: phase2_pi
   PRINTING --> COMPLETED: phase2_pi
   PRINTING --> FAILED: phase2_pi
 ```
 
-Phase 1 stops after `QUEUED` or `CLAIMED`.
+After payment, jobs enter `QUEUED` and appear on the Scan page ready queue. If the user already has an active kiosk session, the job is bound to that kiosk and may auto-dispatch when the Pi agent is online. Otherwise the user scans the kiosk QR and releases the job manually.
 
 ## Events
 
@@ -51,9 +51,43 @@ Rates default: B&W ₹2/sheet, Color ₹3/sheet (stored in paise: 200, 300).
 
 Optional “Save for 30 days” sets `save_file=true` and `file_retention_until=now+30d`. One saved file may back multiple print jobs. Reprint from History only when file still exists.
 
-## Phase 2 Contract
+## Pi agent contract
 
-After `POST /print-jobs/{id}/release`:
+Pay-first (primary):
 
-- Job has `kiosk_id`, status `CLAIMED`, events `KIOSK_SELECTED`, `PRINT_REQUESTED`.
-- Pi agent polls or subscribes for jobs where `kiosk_id` matches and status is `CLAIMED`/`QUEUED`.
+- Payment success → `QUEUED` (no `kiosk_id`) → user scans kiosk → `POST /print-jobs/{id}/release` → `kiosk_id` set → backend sends `job.assigned` on `/ws/kiosk` → dispatch sets `CLAIMED` + `dispatched_at`.
+
+Optional scan-before-pay:
+
+- Payment success with active `kiosk_sessions` row → `kiosk_id` bound → auto-dispatch if Pi is online.
+
+Manual release (`POST /print-jobs/{id}/release`):
+
+- Sets `kiosk_id`, keeps `QUEUED` until dispatch; events `KIOSK_SELECTED`; dispatch adds `PRINT_REQUESTED` and transitions to `CLAIMED`.
+
+See [pi-integration.md](./pi-integration.md).
+
+## User-facing status (API)
+
+`GET /print-jobs/:id` returns `display_status`, `display_label`, `display_message`, and `steps[]`. The browser polls every 2s until `is_terminal` is true.
+
+| `display_status` | Label |
+|------------------|-------|
+| `QUEUED` | Waiting for kiosk |
+| `RECEIVED` | Kiosk received your job |
+| `DOWNLOADING` | Preparing your file |
+| `READY` | Ready to print |
+| `PRINTING` | Printing |
+| `COMPLETED` | Printed |
+| `FAILED` | Print failed |
+
+`pi_phase` on `print_jobs` stores the last Pi-reported phase (`job.received` → `RECEIVED`, `job.ready` → `READY`, etc.) without renaming DB status enums.
+
+## File cleanup
+
+On `COMPLETED`, if `save_file=false`, the backend deletes the source blob immediately (`cleanup_status`). Cleanup failure does not change job status from `COMPLETED`.
+
+## Env
+
+- `JOB_STUCK_TIMEOUT_MINUTES` (default 30)
+- `KIOSK_HEARTBEAT_TIMEOUT_SECONDS` (default 90)

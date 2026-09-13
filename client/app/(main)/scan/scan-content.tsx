@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import dynamic from "next/dynamic";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -15,9 +16,11 @@ import {
 import { Spinner } from "@/components/ui/spinner";
 import { PrintJobCardSkeleton } from "@/components/print/print-job-card";
 import { apiFetch, apiFetchPublic, fetchPrintJobs } from "@/lib/api";
+import { clearKioskContext, writeKioskContext } from "@/lib/kiosk-context";
 import { formatJobAmount, formatJobSummary } from "@/lib/print-job-display";
+import { mapPrintJobStatus } from "@/lib/map-print-job-status";
 import { pageMaxWidthClass } from "@/lib/layout";
-import type { Kiosk, PrintJob } from "@/lib/types";
+import type { Kiosk, KioskServiceStatus, PrintJob } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { toast } from "@/components/ui/toast";
 
@@ -25,6 +28,8 @@ const QrScanner = dynamic(
   () => import("@yudiel/react-qr-scanner").then((m) => m.Scanner),
   { ssr: false }
 );
+
+const SUPPORT_EMAIL = "help@quickprint.fun";
 
 function parseKioskScan(text: string): string | null {
   const trimmed = text.trim();
@@ -42,24 +47,56 @@ function parseKioskScan(text: string): string | null {
 }
 
 export default function ScanPage() {
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const [kiosk, setKiosk] = useState<Kiosk | null>(null);
+  const [kioskToken, setKioskToken] = useState<string | null>(null);
+  const [serviceOnline, setServiceOnline] = useState<boolean | null>(null);
   const [jobs, setJobs] = useState<PrintJob[]>([]);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [jobsLoading, setJobsLoading] = useState(true);
   const [kioskLoading, setKioskLoading] = useState(false);
   const [releasing, setReleasing] = useState(false);
   const scanLock = useRef(false);
+  const releaseLock = useRef(false);
+  const connectHandledRef = useRef<string | null>(null);
 
   const loadReadyJobs = useCallback(async () => {
     const { items } = await fetchPrintJobs("?view=ready&limit=20&page=1");
     setJobs(items.sort((a, b) => b.created_at.localeCompare(a.created_at)));
   }, []);
 
+  const loadKioskServiceStatus = useCallback(async (token: string) => {
+    try {
+      const status = await apiFetchPublic<KioskServiceStatus>(
+        `/kiosks/${encodeURIComponent(token)}/status`
+      );
+      setServiceOnline(status.service.online);
+    } catch {
+      setServiceOnline(false);
+    }
+  }, []);
+
   useEffect(() => {
+    const legacyToken = searchParams.get("kiosk");
+    if (legacyToken?.trim()) {
+      router.replace(`/scan/${encodeURIComponent(legacyToken.trim())}`);
+      return;
+    }
+    setJobsLoading(true);
     void loadReadyJobs()
       .catch(() => setJobs([]))
       .finally(() => setJobsLoading(false));
-  }, [loadReadyJobs]);
+  }, [loadReadyJobs, router, searchParams, pathname]);
+
+  useEffect(() => {
+    if (!kioskToken) return;
+    const timer = setInterval(() => {
+      void loadKioskServiceStatus(kioskToken);
+    }, 10000);
+    return () => clearInterval(timer);
+  }, [kioskToken, loadKioskServiceStatus]);
 
   useEffect(() => {
     setSelectedIds(new Set(jobs.map((j) => j.id)));
@@ -75,11 +112,30 @@ export default function ScanPage() {
       setKioskLoading(true);
       try {
         const k = await apiFetchPublic<Kiosk>(`/kiosks/${encodeURIComponent(token)}`);
-        await apiFetch(`/kiosks/${encodeURIComponent(token)}/session`, {
+        const session = await apiFetch<{
+          released_job_ids?: string[];
+        }>(`/kiosks/${encodeURIComponent(token)}/session`, {
           method: "POST",
         });
+        writeKioskContext({ publicToken: token, name: k.name });
         setKiosk(k);
+        setKioskToken(token);
+        await loadKioskServiceStatus(token);
         toast.add({ title: `Connected to ${k.name}`, type: "success" });
+
+        const released = session.released_job_ids ?? [];
+        if (released.length > 0) {
+          toast.add({
+            title:
+              released.length === 1
+                ? "Sending your job to the kiosk"
+                : `Sending ${released.length} jobs to the kiosk`,
+            type: "success",
+          });
+          router.push(`/print/jobs/${released[0]}`);
+          return;
+        }
+
         await loadReadyJobs();
       } catch (e) {
         toast.add({
@@ -90,8 +146,16 @@ export default function ScanPage() {
         setKioskLoading(false);
       }
     },
-    [loadReadyJobs]
+    [loadReadyJobs, loadKioskServiceStatus, router]
   );
+
+  useEffect(() => {
+    const connectToken = searchParams.get("connect")?.trim();
+    if (!connectToken || kiosk || connectHandledRef.current === connectToken) return;
+    connectHandledRef.current = connectToken;
+    router.replace("/scan");
+    void loadKioskFromScan(connectToken);
+  }, [searchParams, kiosk, router, loadKioskFromScan]);
 
   const onQrDetected = (raw: string) => {
     if (kiosk || kioskLoading || scanLock.current) return;
@@ -103,6 +167,10 @@ export default function ScanPage() {
 
   const disconnectKiosk = () => {
     setKiosk(null);
+    setKioskToken(null);
+    setServiceOnline(null);
+    clearKioskContext();
+    connectHandledRef.current = null;
   };
 
   const toggleJob = (jobId: string, checked: boolean) => {
@@ -118,10 +186,21 @@ export default function ScanPage() {
   const clearSelection = () => setSelectedIds(new Set());
 
   const releaseSelected = async () => {
-    if (!kiosk || selectedIds.size === 0) return;
+    if (!kiosk || selectedIds.size === 0 || releaseLock.current) return;
+    if (serviceOnline === false) {
+      toast.add({
+        title: "Kiosk service is currently unavailable.",
+        description: `Contact the QuickPrint team at ${SUPPORT_EMAIL}.`,
+        type: "error",
+      });
+      return;
+    }
+
+    releaseLock.current = true;
     setReleasing(true);
     const ids = [...selectedIds];
     let succeeded = 0;
+    let firstReleasedId: string | null = null;
     let lastError: string | null = null;
     try {
       for (const jobId of ids) {
@@ -130,36 +209,39 @@ export default function ScanPage() {
             method: "POST",
             json: { kiosk_code: kiosk.kiosk_code },
           });
+          if (!firstReleasedId) firstReleasedId = jobId;
           succeeded += 1;
         } catch (e) {
-          lastError = e instanceof Error ? e.message : "Release failed";
+          lastError = e instanceof Error ? e.message : "Could not send job to kiosk";
         }
       }
-      if (succeeded > 0) {
-        toast.add({
-          title:
-            succeeded === 1
-              ? "1 job sent to the printer"
-              : `${succeeded} jobs sent to the printer`,
-          type: "success",
-        });
+      if (succeeded > 0 && firstReleasedId) {
+        if (succeeded > 1) {
+          toast.add({
+            title: `${succeeded} jobs sent to the kiosk`,
+            type: "success",
+          });
+        }
+        router.push(`/print/jobs/${firstReleasedId}`);
+        return;
       }
-      if (lastError && succeeded < ids.length) {
+      if (lastError) {
         toast.add({
-          title: lastError,
-          description:
-            succeeded > 0 ? `${succeeded} of ${ids.length} jobs were released.` : undefined,
+          title: "Could not send job to kiosk",
+          description: `Contact the QuickPrint team at ${SUPPORT_EMAIL}.`,
           type: "error",
         });
       }
       await loadReadyJobs();
     } finally {
       setReleasing(false);
+      releaseLock.current = false;
     }
   };
 
   const selectedCount = selectedIds.size;
   const showPrintBar = Boolean(kiosk) && jobs.length > 0;
+  const printDisabled = releasing || serviceOnline === false;
 
   return (
     <div className={cn("flex flex-col gap-5", showPrintBar && "pb-32")}>
@@ -218,6 +300,19 @@ export default function ScanPage() {
               {kiosk.location ? (
                 <p className="text-sm text-muted-foreground">{kiosk.location}</p>
               ) : null}
+              {serviceOnline === true && (
+                <Badge variant="outline" className="mt-1 border-green-600/40 text-green-700 dark:text-green-400">
+                  Service online
+                </Badge>
+              )}
+              {serviceOnline === false && (
+                <div className="mt-2 space-y-1">
+                  <Badge variant="destructive">Service unavailable</Badge>
+                  <p className="text-xs text-muted-foreground">
+                    This kiosk is not available right now. Contact {SUPPORT_EMAIL}.
+                  </p>
+                </div>
+              )}
             </div>
             <Button type="button" variant="outline" size="sm" onClick={disconnectKiosk}>
               Scan again
@@ -250,7 +345,7 @@ export default function ScanPage() {
             <EmptyHeader>
               <EmptyTitle>No jobs ready</EmptyTitle>
               <EmptyDescription>
-                Paid jobs that are not yet claimed will show here.
+                Paid jobs that are not yet printed will show here.
               </EmptyDescription>
             </EmptyHeader>
           </Empty>
@@ -264,6 +359,7 @@ export default function ScanPage() {
             {jobs.map((job) => {
               const amount = formatJobAmount(job);
               const selected = selectedIds.has(job.id);
+              const { label: statusLabel, message: statusMessage } = mapPrintJobStatus(job);
               return (
                 <Card
                   key={job.id}
@@ -280,6 +376,7 @@ export default function ScanPage() {
                           onCheckedChange={(c) => toggleJob(job.id, c === true)}
                           aria-label={`Include ${job.job_number}`}
                           className="mt-0.5"
+                          disabled={printDisabled}
                         />
                       ) : (
                         <div className="size-4 shrink-0" aria-hidden />
@@ -294,10 +391,16 @@ export default function ScanPage() {
                           ) : null}
                         </div>
                         <p className="text-sm text-muted-foreground">{formatJobSummary(job)}</p>
+                        {kiosk?.name && (
+                          <p className="text-xs text-muted-foreground">{kiosk.name}</p>
+                        )}
                         <div className="flex flex-wrap items-center gap-2 pt-1">
-                          <Badge>In queue</Badge>
+                          <Badge variant="secondary">{statusLabel}</Badge>
                           <span className="text-xs text-muted-foreground">{job.job_number}</span>
                         </div>
+                        {statusMessage && (
+                          <p className="text-xs text-muted-foreground">{statusMessage}</p>
+                        )}
                       </div>
                     </div>
                   </CardContent>
@@ -317,14 +420,16 @@ export default function ScanPage() {
         >
           <div className="rounded-2xl border bg-card p-3 shadow-lg">
             <p className="mb-2 text-center text-xs text-muted-foreground">
-              {selectedCount === jobs.length
-                ? `All ${jobs.length} job${jobs.length === 1 ? "" : "s"} selected`
-                : `${selectedCount} of ${jobs.length} selected`}
+              {serviceOnline === false
+                ? "Kiosk service unavailable"
+                : selectedCount === jobs.length
+                  ? `All ${jobs.length} job${jobs.length === 1 ? "" : "s"} selected`
+                  : `${selectedCount} of ${jobs.length} selected`}
             </p>
             <Button
               className="w-full"
               size="lg"
-              disabled={selectedCount === 0 || releasing}
+              disabled={selectedCount === 0 || printDisabled}
               onClick={() => void releaseSelected()}
             >
               {releasing ? (
@@ -332,6 +437,8 @@ export default function ScanPage() {
                   <Spinner className="size-4" />
                   Sending to printer…
                 </>
+              ) : serviceOnline === false ? (
+                "Service unavailable"
               ) : selectedCount === jobs.length ? (
                 "Print all at this kiosk"
               ) : (

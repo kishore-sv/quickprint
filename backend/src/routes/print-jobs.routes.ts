@@ -1,7 +1,7 @@
 import { and, eq } from "drizzle-orm";
 import { Router } from "express";
 import { db } from "../db";
-import { savedFiles } from "../db/schema";
+import { kiosks, printJobs, savedFiles } from "../db/schema";
 import { requireAuth } from "../middleware/auth.middleware";
 import { validateBody } from "../middleware/validate.middleware";
 import {
@@ -14,20 +14,22 @@ import {
   recalculateJobPrice,
 } from "../services/print-job.service";
 import { buildPriceBreakdown, getActiveRates, validatePageRangeFormat } from "../services/pricing.service";
+import { enqueueDispatchForKiosk } from "../services/kiosk-dispatch.service";
 import { resolveKiosk } from "../services/kiosk.service";
 import { PrintJobEventType } from "../types/enums";
 import { NotFoundError, PrintJobError } from "../utils/errors";
 import { ok } from "../utils/respond";
 import { paramId } from "../utils/params";
 import { assertActiveKioskSession } from "../services/kiosk.service";
-import { serializePrintJob } from "../utils/serializers";
+import { applyJobTimeoutIfNeeded } from "../services/job-timeout.service";
+import { isKioskServiceOnline } from "../services/kiosk-status.service";
+import { serializePrintJob, serializePrintJobDetail } from "../utils/serializers";
 import {
   printJobCreateSchema,
   printJobReleaseSchema,
   printJobUpdateSchema,
 } from "../validators/print-job.validator";
 import { ensureProfile } from "../services/profile.service";
-import { printJobs } from "../db/schema";
 
 export const printJobsRoutes = Router();
 
@@ -94,8 +96,19 @@ printJobsRoutes.get("/print-jobs", requireAuth, async (req, res, next) => {
 
 printJobsRoutes.get("/print-jobs/:id", requireAuth, async (req, res, next) => {
   try {
-    const job = await getOwnedJob(paramId(req.params.id), req.auth!.userId);
-    ok(res, serializePrintJob(job));
+    let job = await getOwnedJob(paramId(req.params.id), req.auth!.userId);
+    job = await applyJobTimeoutIfNeeded(job);
+
+    let kioskName: string | null = null;
+    let kioskCode: string | null = null;
+    let kioskServiceOnline: boolean | null = null;
+    if (job.kioskId) {
+      const [kiosk] = await db.select().from(kiosks).where(eq(kiosks.id, job.kioskId)).limit(1);
+      kioskName = kiosk?.name ?? null;
+      kioskCode = kiosk?.kioskCode ?? null;
+      kioskServiceOnline = kiosk ? isKioskServiceOnline(kiosk) : false;
+    }
+    ok(res, serializePrintJobDetail(job, { kioskName, kioskCode, kioskServiceOnline }));
   } catch (e) {
     next(e);
   }
@@ -199,13 +212,10 @@ printJobsRoutes.post(
       }
       await assertActiveKioskSession(req.auth!.userId, kiosk.id);
 
-      const now = new Date();
       const [updated] = await db
         .update(printJobs)
         .set({
           kioskId: kiosk.id,
-          status: "CLAIMED",
-          claimedAt: now,
         })
         .where(eq(printJobs.id, job.id))
         .returning();
@@ -214,7 +224,8 @@ printJobsRoutes.post(
         kiosk_code: kiosk.kioskCode,
         public_token: kiosk.publicToken,
       });
-      await addEvent(job.id, PrintJobEventType.PRINT_REQUESTED);
+
+      void enqueueDispatchForKiosk(kiosk.id);
 
       ok(res, serializePrintJob(updated!));
     } catch (e) {

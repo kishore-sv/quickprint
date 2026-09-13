@@ -5,6 +5,7 @@ import { printJobEvents, printJobs } from "../db/schema";
 import type { PrintJobStatus } from "../types/enums";
 import { PrintJobEventType } from "../types/enums";
 import { NotFoundError, PrintJobError } from "../utils/errors";
+import { requeueUnacknowledgedJobsForUser } from "./kiosk-dispatch.service";
 import { buildPriceBreakdown, getActiveRates } from "./pricing.service";
 import type { PrintSettingsInput } from "../validators/print-job.validator";
 
@@ -37,6 +38,12 @@ export const printJobListSelection = {
   createdAt: printJobs.createdAt,
   paidAt: printJobs.paidAt,
   claimedAt: printJobs.claimedAt,
+  dispatchedAt: printJobs.dispatchedAt,
+  piPhase: printJobs.piPhase,
+  userErrorCode: printJobs.userErrorCode,
+  completedAt: printJobs.completedAt,
+  failedAt: printJobs.failedAt,
+  lastPiEventAt: printJobs.lastPiEventAt,
 };
 
 export type PrintJobListRow = {
@@ -66,6 +73,12 @@ export type PrintJobListRow = {
   createdAt: Date;
   paidAt: Date | null;
   claimedAt: Date | null;
+  dispatchedAt: Date | null;
+  piPhase: string | null;
+  userErrorCode: string | null;
+  completedAt: Date | null;
+  failedAt: Date | null;
+  lastPiEventAt: Date | null;
 };
 
 export type ListUserJobsView = "all" | "active" | "ready";
@@ -111,7 +124,7 @@ export function generateJobNumber(): string {
 function readyForKioskCondition() {
   return and(
     eq(printJobs.paymentStatus, "PAID"),
-    isNull(printJobs.claimedAt),
+    isNull(printJobs.dispatchedAt),
     or(eq(printJobs.status, "QUEUED"), eq(printJobs.status, "PAID"))
   );
 }
@@ -122,7 +135,10 @@ function activeJobsCondition() {
       not(eq(printJobs.paymentStatus, "PAID")),
       notInArray(printJobs.status, [...TERMINAL_STATUSES])
     ),
-    readyForKioskCondition()
+    and(
+      eq(printJobs.paymentStatus, "PAID"),
+      notInArray(printJobs.status, [...TERMINAL_STATUSES])
+    )
   );
 }
 
@@ -286,6 +302,10 @@ export async function listUserJobs(
   const limit = options.limit ?? 20;
   const view = options.view ?? "all";
   const offset = (page - 1) * limit;
+
+  if (view === "ready" || view === "active") {
+    await requeueUnacknowledgedJobsForUser(userId);
+  }
 
   const conditions = [eq(printJobs.userId, userId)];
   if (options.statusFilter) {

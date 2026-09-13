@@ -23,6 +23,52 @@ export type PrintJobListResponse = {
   has_more: boolean;
 };
 
+export type DisplayStatus =
+  | "AWAITING_PAYMENT"
+  | "QUEUED"
+  | "RECEIVED"
+  | "DOWNLOADING"
+  | "READY"
+  | "PRINTING"
+  | "COMPLETED"
+  | "FAILED"
+  | "CANCELLED"
+  | "EXPIRED";
+
+export type JobStep = {
+  key: "payment" | "queued" | "received" | "preparing" | "printing" | "printed";
+  done: boolean;
+  active?: boolean;
+};
+
+export type PrintJobDetail = PrintJob & {
+  kiosk_name?: string | null;
+  kiosk_code?: string | null;
+  display_status?: DisplayStatus;
+  display_label?: string;
+  display_message?: string | null;
+  steps?: JobStep[];
+  pi_phase?: string | null;
+  user_error_code?: string | null;
+  kiosk_service_online?: boolean | null;
+  updated_at?: string;
+  cleanup_status?: string | null;
+  is_terminal?: boolean;
+};
+
+export type KioskServiceStatus = {
+  kiosk: {
+    id: string;
+    name: string;
+    kiosk_code: string;
+    location: string | null;
+  };
+  service: {
+    online: boolean;
+    last_seen: string | null;
+  };
+};
+
 export type PrintJob = {
   id: string;
   job_number: string;
@@ -50,6 +96,12 @@ export type PrintJob = {
   created_at: string;
   paid_at: string | null;
   claimed_at: string | null;
+  dispatched_at?: string | null;
+  pi_phase?: string | null;
+  display_status?: DisplayStatus;
+  display_label?: string;
+  display_message?: string | null;
+  is_terminal?: boolean;
 };
 
 export type Kiosk = {

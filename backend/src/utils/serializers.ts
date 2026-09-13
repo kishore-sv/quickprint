@@ -1,10 +1,49 @@
 import type { InferSelectModel } from "drizzle-orm";
 import type { kiosks, printJobs, savedFiles } from "../db/schema";
 import type { PrintJobListRow } from "../services/print-job.service";
+import {
+  buildJobSteps,
+  displayLabel,
+  displayMessage,
+  isTerminalDisplayStatus,
+  jobUpdatedAt,
+  resolveDisplayStatus,
+} from "../services/print-job-display.service";
 
 type PrintJobSerializable = InferSelectModel<typeof printJobs> | PrintJobListRow;
 
-export function serializePrintJob(job: PrintJobSerializable) {
+function basePrintJobFields(job: PrintJobSerializable) {
+  const hasPhase = "piPhase" in job;
+  const piPhase = hasPhase ? (job as InferSelectModel<typeof printJobs>).piPhase : null;
+  const userErrorCode = hasPhase ? (job as InferSelectModel<typeof printJobs>).userErrorCode : null;
+  const dispatchedAt = job.dispatchedAt ?? null;
+
+  const displayStatus = resolveDisplayStatus({
+    status: job.status,
+    paymentStatus: job.paymentStatus,
+    piPhase,
+    dispatchedAt,
+    userErrorCode,
+    paidAt: job.paidAt ?? null,
+    completedAt: hasPhase ? (job as InferSelectModel<typeof printJobs>).completedAt ?? null : null,
+    failedAt: hasPhase ? (job as InferSelectModel<typeof printJobs>).failedAt ?? null : null,
+    lastPiEventAt: hasPhase ? (job as InferSelectModel<typeof printJobs>).lastPiEventAt ?? null : null,
+    createdAt: job.createdAt,
+  });
+
+  const jobForMessage = {
+    status: job.status,
+    paymentStatus: job.paymentStatus,
+    piPhase,
+    dispatchedAt,
+    userErrorCode,
+    paidAt: job.paidAt ?? null,
+    completedAt: hasPhase ? (job as InferSelectModel<typeof printJobs>).completedAt ?? null : null,
+    failedAt: hasPhase ? (job as InferSelectModel<typeof printJobs>).failedAt ?? null : null,
+    lastPiEventAt: hasPhase ? (job as InferSelectModel<typeof printJobs>).lastPiEventAt ?? null : null,
+    createdAt: job.createdAt,
+  };
+
   return {
     id: job.id,
     job_number: job.jobNumber,
@@ -32,6 +71,57 @@ export function serializePrintJob(job: PrintJobSerializable) {
     created_at: job.createdAt,
     paid_at: job.paidAt,
     claimed_at: job.claimedAt,
+    dispatched_at: dispatchedAt,
+    pi_phase: piPhase,
+    display_status: displayStatus,
+    display_label: displayLabel(displayStatus),
+    display_message: displayMessage(jobForMessage),
+    is_terminal: isTerminalDisplayStatus(displayStatus),
+  };
+}
+
+export function serializePrintJob(job: PrintJobSerializable) {
+  return basePrintJobFields(job);
+}
+
+export function serializePrintJobDetail(
+  job: InferSelectModel<typeof printJobs>,
+  options?: {
+    kioskName?: string | null;
+    kioskCode?: string | null;
+    kioskServiceOnline?: boolean | null;
+  }
+) {
+  const base = basePrintJobFields(job);
+  const jobForMessage = {
+    status: job.status,
+    paymentStatus: job.paymentStatus,
+    piPhase: job.piPhase,
+    dispatchedAt: job.dispatchedAt,
+    userErrorCode: job.userErrorCode,
+    paidAt: job.paidAt,
+    completedAt: job.completedAt,
+    failedAt: job.failedAt,
+    lastPiEventAt: job.lastPiEventAt,
+    createdAt: job.createdAt,
+  };
+  const displayStatus = resolveDisplayStatus(jobForMessage);
+
+  return {
+    ...base,
+    display_message: displayMessage(jobForMessage, {
+      kioskServiceOnline: options?.kioskServiceOnline,
+      kioskCode: options?.kioskCode,
+      kioskName: options?.kioskName,
+    }),
+    steps: buildJobSteps(jobForMessage),
+    user_error_code: job.userErrorCode ?? null,
+    kiosk_name: options?.kioskName ?? null,
+    kiosk_code: options?.kioskCode ?? null,
+    kiosk_service_online: options?.kioskServiceOnline ?? null,
+    updated_at: jobUpdatedAt(jobForMessage),
+    cleanup_status: job.cleanupStatus ?? null,
+    is_terminal: isTerminalDisplayStatus(displayStatus),
   };
 }
 
