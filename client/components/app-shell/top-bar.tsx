@@ -1,8 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { authClient } from "@/lib/auth-client";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { appCallbackUrl, authClient } from "@/lib/auth-client";
+import { useGoogleProfileImage } from "@/lib/use-google-profile-image";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { pageMaxWidthClass } from "@/lib/layout";
 
@@ -17,6 +18,7 @@ export function TopBar() {
     : isGuest
       ? "G"
       : "?";
+  const profileImage = useGoogleProfileImage(user, isGuest);
 
   return (
     <header
@@ -32,14 +34,21 @@ export function TopBar() {
         <div className="flex items-center gap-2">
           <span className="max-w-[120px] truncate text-sm text-muted-foreground">{displayName}</span>
           <Avatar className="size-8">
+            {profileImage ? (
+              <AvatarImage
+                src={profileImage}
+                alt={displayName}
+                referrerPolicy="no-referrer"
+              />
+            ) : null}
             <AvatarFallback className="text-xs">{initials}</AvatarFallback>
           </Avatar>
           <Button
             variant="outline"
             size="sm"
-            onClick={() => {
-              void authClient.signOut();
-              window.location.href = "/sign-in";
+            onClick={async () => {
+              await authClient.signOut();
+              window.location.assign(appCallbackUrl("/sign-in"));
             }}
           >
             Logout

@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { cn } from "cn";
-import { authClient } from "@/lib/auth-client";
+import { appCallbackUrl, authClient } from "@/lib/auth-client";
 import { Button } from "@/components/ui/button";
 import { LinkButton } from "@/components/ui/link-button";
 import {
@@ -43,7 +43,7 @@ export function SignupForm({
     setError(null);
     const { error: err } = await authClient.signIn.social({
       provider: "google",
-      callbackURL: "/home",
+      callbackURL: appCallbackUrl("/home"),
     });
     setGoogleLoading(false);
     if (err) setError(err.message ?? "Google sign up failed");
@@ -174,7 +174,7 @@ export function SignupForm({
                 </Button>
                 <FieldDescription className="text-center">
                   Already have an account?{" "}
-                  <LinkButton href="/sign-in" variant="link" size="sm" className="h-auto p-0">
+                  <LinkButton href="/sign-in" variant="link" size="sm" className="h-auto p-0 shadow-none">
                     Sign in
                   </LinkButton>
                 </FieldDescription>

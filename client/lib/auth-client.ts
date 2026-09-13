@@ -10,3 +10,12 @@ export const authClient = createAuthClient({
   baseURL: authBase,
   plugins: [anonymousClient()],
 });
+
+/** Post-auth redirect on the Next.js app (not the API host). */
+export function appCallbackUrl(path = "/home"): string {
+  const origin =
+    process.env.NEXT_PUBLIC_APP_URL ??
+    (typeof window !== "undefined" ? window.location.origin : "http://localhost:3000");
+  const normalized = path.startsWith("/") ? path : `/${path}`;
+  return `${origin.replace(/\/$/, "")}${normalized}`;
+}
