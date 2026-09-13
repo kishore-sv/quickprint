@@ -24,6 +24,7 @@ export const savedFiles = pgTable(
   },
   (t) => [
     index("ix_saved_files_user_id").on(t.userId),
+    index("ix_saved_files_user_id_created_at").on(t.userId, t.createdAt),
     index("ix_saved_files_retention_until").on(t.retentionUntil),
   ]
 );

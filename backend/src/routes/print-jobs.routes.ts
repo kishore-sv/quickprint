@@ -10,6 +10,7 @@ import {
   createPrintJob,
   getOwnedJob,
   listUserJobs,
+  parseListJobsQuery,
   recalculateJobPrice,
 } from "../services/print-job.service";
 import { buildPriceBreakdown, getActiveRates, validatePageRangeFormat } from "../services/pricing.service";
@@ -78,9 +79,14 @@ printJobsRoutes.post(
 
 printJobsRoutes.get("/print-jobs", requireAuth, async (req, res, next) => {
   try {
-    const status = req.query.status as string | undefined;
-    const jobs = await listUserJobs(req.auth!.userId, status as import("../types/enums").PrintJobStatus | undefined);
-    ok(res, jobs.map(serializePrintJob));
+    const options = parseListJobsQuery(req.query as Record<string, unknown>);
+    const result = await listUserJobs(req.auth!.userId, options);
+    ok(res, {
+      items: result.items.map(serializePrintJob),
+      page: result.page,
+      limit: result.limit,
+      has_more: result.has_more,
+    });
   } catch (e) {
     next(e);
   }

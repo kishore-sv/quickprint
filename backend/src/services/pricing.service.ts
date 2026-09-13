@@ -93,30 +93,44 @@ export function buildPriceBreakdown(params: {
   };
 }
 
-export async function getActiveRates(): Promise<{
-  bwPaise: number;
-  colorPaise: number;
-  currency: string;
-}> {
+type Rates = { bwPaise: number; colorPaise: number; currency: string };
+
+const RATES_CACHE_TTL_MS = 60_000;
+let ratesCache: { at: number; value: Rates } | null = null;
+
+export async function getActiveRates(): Promise<Rates> {
+  const now = Date.now();
+  if (ratesCache && now - ratesCache.at < RATES_CACHE_TTL_MS) {
+    return ratesCache.value;
+  }
+
   const rows = await db
-    .select()
+    .select({
+      bwPerSheetPaise: pricingRules.bwPerSheetPaise,
+      colorPerSheetPaise: pricingRules.colorPerSheetPaise,
+      currency: pricingRules.currency,
+    })
     .from(pricingRules)
     .where(eq(pricingRules.isActive, true))
     .orderBy(pricingRules.createdAt)
     .limit(1);
 
   const rule = rows[0];
+  let value: Rates;
   if (rule) {
-    return {
+    value = {
       bwPaise: rule.bwPerSheetPaise,
       colorPaise: rule.colorPerSheetPaise,
       currency: rule.currency,
     };
+  } else {
+    const { env } = await import("../config/env");
+    value = {
+      bwPaise: env.DEFAULT_BW_SHEET_PAISE,
+      colorPaise: env.DEFAULT_COLOR_SHEET_PAISE,
+      currency: "INR",
+    };
   }
-  const { env } = await import("../config/env");
-  return {
-    bwPaise: env.DEFAULT_BW_SHEET_PAISE,
-    colorPaise: env.DEFAULT_COLOR_SHEET_PAISE,
-    currency: "INR",
-  };
+  ratesCache = { at: now, value };
+  return value;
 }

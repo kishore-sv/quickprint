@@ -61,6 +61,7 @@ export const printJobs = pgTable(
   },
   (t) => [
     index("ix_print_jobs_user_id").on(t.userId),
+    index("ix_print_jobs_user_id_created_at").on(t.userId, t.createdAt),
     index("ix_print_jobs_status").on(t.status),
     index("ix_print_jobs_created_at").on(t.createdAt),
     index("ix_print_jobs_kiosk_id").on(t.kioskId),

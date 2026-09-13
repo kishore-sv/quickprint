@@ -1,9 +1,7 @@
 import { betterAuth } from "better-auth";
 import { anonymous } from "better-auth/plugins";
-import { Pool } from "pg";
 import { env, corsOrigins } from "../config/env";
-
-const pool = new Pool({ connectionString: env.DATABASE_URL });
+import { pool } from "../db";
 
 const googleEnabled = Boolean(env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET);
 

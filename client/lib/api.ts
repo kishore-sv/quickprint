@@ -1,4 +1,5 @@
 import { authClient } from "@/lib/auth-client";
+import type { PrintJobListResponse } from "@/lib/types";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
@@ -10,11 +11,6 @@ export class ApiError extends Error {
   ) {
     super(message);
   }
-}
-
-async function getSessionToken(): Promise<string | null> {
-  const { data } = await authClient.getSession();
-  return data?.session?.token ?? null;
 }
 
 function unwrapSuccess<T>(body: unknown): T {
@@ -38,15 +34,6 @@ async function parseJsonResponse<T>(res: Response): Promise<T> {
   return unwrapSuccess<T>(json);
 }
 
-async function buildAuthHeaders(extra?: HeadersInit): Promise<Headers> {
-  const headers = new Headers(extra);
-  const token = await getSessionToken();
-  if (token) {
-    headers.set("Authorization", `Bearer ${token}`);
-  }
-  return headers;
-}
-
 export async function apiFetch<T>(
   path: string,
   options: RequestInit & { json?: unknown } = {}
@@ -56,7 +43,11 @@ export async function apiFetch<T>(
     throw new ApiError("Not authenticated", 401, "UNAUTHORIZED");
   }
 
-  const headers = await buildAuthHeaders(options.headers);
+  const headers = new Headers(options.headers);
+  const token = sessionData.session.token;
+  if (token) {
+    headers.set("Authorization", `Bearer ${token}`);
+  }
 
   let body = options.body;
   if (options.json !== undefined) {
@@ -96,6 +87,10 @@ export async function apiFetchPublic<T>(path: string): Promise<T> {
     throw new ApiError("Request failed", res.status);
   }
   return parseJsonResponse<T>(res);
+}
+
+export async function fetchPrintJobs(query: string): Promise<PrintJobListResponse> {
+  return apiFetch<PrintJobListResponse>(`/print-jobs${query}`);
 }
 
 export async function uploadFile(

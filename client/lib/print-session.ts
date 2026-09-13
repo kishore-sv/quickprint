@@ -71,17 +71,20 @@ export async function draftsFromPersisted(
   persisted: PersistedPrintDraft[],
   fetchSaved: (id: string) => Promise<SavedFile>
 ): Promise<PrintFileDraft[]> {
-  const out: PrintFileDraft[] = [];
-  for (const p of persisted) {
-    const saved = await fetchSaved(p.savedFileId);
-    const file = await fileFromSaved(saved);
-    const pages = p.selectedPages.length > 0 ? p.selectedPages : [...Array(saved.page_count)].map((_, i) => i + 1);
-    out.push({
+  const savedList = await Promise.all(persisted.map((p) => fetchSaved(p.savedFileId)));
+  const files = await Promise.all(savedList.map((saved) => fileFromSaved(saved)));
+  return persisted.map((p, i) => {
+    const saved = savedList[i]!;
+    const file = files[i]!;
+    const pages =
+      p.selectedPages.length > 0
+        ? p.selectedPages
+        : [...Array(saved.page_count)].map((_, j) => j + 1);
+    return {
       file,
       pageCount: saved.page_count,
       savedFile: saved,
       selectedPages: new Set(pages.filter((n) => n >= 1 && n <= saved.page_count)),
-    });
-  }
-  return out;
+    };
+  });
 }

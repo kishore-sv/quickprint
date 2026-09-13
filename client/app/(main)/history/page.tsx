@@ -15,7 +15,7 @@ import { LinkButton } from "@/components/ui/link-button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "@/components/ui/toast";
 import { apiFetch } from "@/lib/api";
-import type { PrintJob } from "@/lib/types";
+import type { PrintJob, PrintJobListResponse } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 function HistoryJobSkeleton() {
@@ -172,17 +172,44 @@ function HistoryJobCard({ job }: { job: PrintJob }) {
   );
 }
 
+const HISTORY_PAGE_SIZE = 20;
+
 export default function HistoryPage() {
   const [jobs, setJobs] = useState<PrintJob[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(false);
 
   useEffect(() => {
     setLoading(true);
-    void apiFetch<PrintJob[]>("/me/print-jobs")
-      .then(setJobs)
-      .catch(() => setJobs([]))
+    setPage(1);
+    void apiFetch<PrintJobListResponse>(`/me/print-jobs?page=1&limit=${HISTORY_PAGE_SIZE}`)
+      .then((data) => {
+        setJobs(data.items);
+        setHasMore(data.has_more);
+      })
+      .catch(() => {
+        setJobs([]);
+        setHasMore(false);
+      })
       .finally(() => setLoading(false));
   }, []);
+
+  const loadMore = () => {
+    const nextPage = page + 1;
+    setLoadingMore(true);
+    void apiFetch<PrintJobListResponse>(
+      `/me/print-jobs?page=${nextPage}&limit=${HISTORY_PAGE_SIZE}`
+    )
+      .then((data) => {
+        setJobs((prev) => [...prev, ...data.items]);
+        setPage(nextPage);
+        setHasMore(data.has_more);
+      })
+      .catch(() => toast.add({ title: "Could not load more jobs", type: "error" }))
+      .finally(() => setLoadingMore(false));
+  };
 
   return (
     <div className="flex flex-col gap-4">
@@ -217,13 +244,26 @@ export default function HistoryPage() {
       )}
 
       {!loading && jobs.length > 0 && (
-        <ul className="flex flex-col gap-3">
-          {jobs.map((job) => (
-            <li key={job.id}>
-              <HistoryJobCard job={job} />
-            </li>
-          ))}
-        </ul>
+        <>
+          <ul className="flex flex-col gap-3">
+            {jobs.map((job) => (
+              <li key={job.id}>
+                <HistoryJobCard job={job} />
+              </li>
+            ))}
+          </ul>
+          {hasMore && (
+            <Button
+              type="button"
+              variant="outline"
+              className="w-full"
+              disabled={loadingMore}
+              onClick={loadMore}
+            >
+              {loadingMore ? "Loading…" : "Load more"}
+            </Button>
+          )}
+        </>
       )}
     </div>
   );

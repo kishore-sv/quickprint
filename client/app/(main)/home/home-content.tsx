@@ -13,8 +13,7 @@ import {
   PrintJobCard,
   PrintJobCardSkeleton,
 } from "@/components/print/print-job-card";
-import { apiFetch } from "@/lib/api";
-import { isActiveJob } from "@/lib/print-job-display";
+import { apiFetch, fetchPrintJobs } from "@/lib/api";
 import { clearPrintFlowSession, readPrintFlowSession } from "@/lib/print-session";
 import type { PrintJob } from "@/lib/types";
 import { toast } from "@/components/ui/toast";
@@ -31,8 +30,8 @@ export default function HomePageContent() {
   } | null>(null);
 
   const loadJobs = useCallback(async () => {
-    const all = await apiFetch<PrintJob[]>("/print-jobs");
-    setJobs(all.filter(isActiveJob).sort((a, b) => b.created_at.localeCompare(a.created_at)));
+    const { items } = await fetchPrintJobs("?view=active&limit=20&page=1");
+    setJobs(items.sort((a, b) => b.created_at.localeCompare(a.created_at)));
   }, []);
 
   useEffect(() => {

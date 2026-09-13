@@ -20,6 +20,11 @@ export const payments = pgTable(
   },
   (t) => [
     index("ix_payments_print_job_id").on(t.printJobId),
+    index("ix_payments_print_job_id_status_created_at").on(
+      t.printJobId,
+      t.status,
+      t.createdAt
+    ),
     index("ix_payments_razorpay_payment_id").on(t.razorpayPaymentId),
   ]
 );

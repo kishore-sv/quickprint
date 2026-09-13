@@ -7,6 +7,8 @@ export type AuthContext = {
   userId: string;
   sessionId: string;
   isAnonymous: boolean;
+  name: string | null;
+  email: string | null;
 };
 
 declare global {
@@ -26,6 +28,8 @@ async function resolveSession(req: Request) {
     userId: session.user.id,
     sessionId: session.session.id,
     isAnonymous: Boolean(session.user.isAnonymous),
+    name: session.user.name ?? null,
+    email: session.user.email ?? null,
   };
 }
 

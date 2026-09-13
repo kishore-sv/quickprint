@@ -119,15 +119,16 @@ paymentsRoutes.post(
         throw new PaymentError("Payment verification failed", "PAYMENT_VERIFICATION_FAILED");
       }
 
-      const [payment] = await db
-        .select()
+      const [paymentRow] = await db
+        .select({
+          userId: printJobs.userId,
+        })
         .from(payments)
+        .innerJoin(printJobs, eq(payments.printJobId, printJobs.id))
         .where(eq(payments.razorpayOrderId, body.razorpay_order_id))
         .limit(1);
-      if (!payment) throw new NotFoundError("Payment not found");
-
-      const job = await getOwnedJob(payment.printJobId, req.auth!.userId);
-      if (job.userId !== req.auth!.userId) {
+      if (!paymentRow) throw new NotFoundError("Payment not found");
+      if (paymentRow.userId !== req.auth!.userId) {
         throw new AuthorizationError();
       }
 

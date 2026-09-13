@@ -15,5 +15,6 @@ export const kioskSessions = pgTable(
   (t) => [
     index("ix_kiosk_sessions_user_id").on(t.userId),
     index("ix_kiosk_sessions_kiosk_id").on(t.kioskId),
+    index("ix_kiosk_sessions_user_kiosk_expires").on(t.userId, t.kioskId, t.expiresAt),
   ]
 );

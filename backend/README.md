@@ -57,6 +57,7 @@ If upgrading an existing Neon DB from Alembic:
 psql "$DATABASE_URL" -f drizzle/0001_add_public_token.sql
 psql "$DATABASE_URL" -f drizzle/0002_additive_indexes_message.sql
 psql "$DATABASE_URL" -f drizzle/0003_uuid_column_defaults.sql
+psql "$DATABASE_URL" -f drizzle/0004_performance_indexes.sql
 ```
 
 Better Auth tables are **not** managed by Drizzle — only application tables in `src/db/schema/`.

@@ -16,6 +16,13 @@ export type SavedFile = {
   download_url?: string | null;
 };
 
+export type PrintJobListResponse = {
+  items: PrintJob[];
+  page: number;
+  limit: number;
+  has_more: boolean;
+};
+
 export type PrintJob = {
   id: string;
   job_number: string;

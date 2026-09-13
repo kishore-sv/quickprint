@@ -14,12 +14,8 @@ import {
 } from "@/components/ui/empty";
 import { Spinner } from "@/components/ui/spinner";
 import { PrintJobCardSkeleton } from "@/components/print/print-job-card";
-import { apiFetch, apiFetchPublic } from "@/lib/api";
-import {
-  formatJobAmount,
-  formatJobSummary,
-  jobReadyForKioskRelease,
-} from "@/lib/print-job-display";
+import { apiFetch, apiFetchPublic, fetchPrintJobs } from "@/lib/api";
+import { formatJobAmount, formatJobSummary } from "@/lib/print-job-display";
 import { pageMaxWidthClass } from "@/lib/layout";
 import type { Kiosk, PrintJob } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -55,12 +51,8 @@ export default function ScanPage() {
   const scanLock = useRef(false);
 
   const loadReadyJobs = useCallback(async () => {
-    const all = await apiFetch<PrintJob[]>("/print-jobs");
-    setJobs(
-      all
-        .filter(jobReadyForKioskRelease)
-        .sort((a, b) => b.created_at.localeCompare(a.created_at))
-    );
+    const { items } = await fetchPrintJobs("?view=ready&limit=20&page=1");
+    setJobs(items.sort((a, b) => b.created_at.localeCompare(a.created_at)));
   }, []);
 
   useEffect(() => {

@@ -84,16 +84,19 @@ filesRoutes.post("/files", requireAuth, upload.single("file"), async (req, res, 
 filesRoutes.get("/files", requireAuth, async (req, res, next) => {
   try {
     const files = await db
-      .select()
+      .select({
+        id: savedFiles.id,
+        originalFilename: savedFiles.originalFilename,
+        fileSizeBytes: savedFiles.fileSizeBytes,
+        pageCount: savedFiles.pageCount,
+        retentionUntil: savedFiles.retentionUntil,
+        createdAt: savedFiles.createdAt,
+      })
       .from(savedFiles)
       .where(eq(savedFiles.userId, req.auth!.userId))
       .orderBy(desc(savedFiles.createdAt))
       .limit(50);
-    const storage = getStorageService();
-    const result = await Promise.all(
-      files.map(async (f) => serializeSavedFile(f, await storage.getSignedUrl(f.storageKey)))
-    );
-    ok(res, result);
+    ok(res, files.map((f) => serializeSavedFile(f, null)));
   } catch (e) {
     next(e);
   }

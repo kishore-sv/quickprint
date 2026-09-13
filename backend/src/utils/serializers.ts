@@ -1,7 +1,10 @@
 import type { InferSelectModel } from "drizzle-orm";
 import type { kiosks, printJobs, savedFiles } from "../db/schema";
+import type { PrintJobListRow } from "../services/print-job.service";
 
-export function serializePrintJob(job: InferSelectModel<typeof printJobs>) {
+type PrintJobSerializable = InferSelectModel<typeof printJobs> | PrintJobListRow;
+
+export function serializePrintJob(job: PrintJobSerializable) {
   return {
     id: job.id,
     job_number: job.jobNumber,
@@ -32,8 +35,18 @@ export function serializePrintJob(job: InferSelectModel<typeof printJobs>) {
   };
 }
 
+type SavedFileSerializable = Pick<
+  InferSelectModel<typeof savedFiles>,
+  | "id"
+  | "originalFilename"
+  | "fileSizeBytes"
+  | "pageCount"
+  | "retentionUntil"
+  | "createdAt"
+>;
+
 export function serializeSavedFile(
-  file: InferSelectModel<typeof savedFiles>,
+  file: SavedFileSerializable,
   downloadUrl?: string | null
 ) {
   return {
