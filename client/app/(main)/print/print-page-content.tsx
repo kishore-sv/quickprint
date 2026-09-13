@@ -5,7 +5,6 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { XIcon } from "lucide-react";
 import Script from "next/script";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { LinkButton } from "@/components/ui/link-button";
 import { Spinner } from "@/components/ui/spinner";
@@ -16,7 +15,7 @@ import {
 } from "@/components/print/print-setup-form";
 import { apiFetch, apiFetchPublic, uploadFile } from "@/lib/api";
 import { readKioskContext } from "@/lib/kiosk-context";
-import { mapPrintJobStatus } from "@/lib/map-print-job-status";
+import { PrintJobStatusChip } from "@/components/print/print-job-status-chip";
 import { imageFileToPdf } from "@/lib/image-to-pdf";
 import { formatPageRange, filterPagesByPageSet, parsePageRange } from "@/lib/print-pricing";
 import {
@@ -655,7 +654,7 @@ export default function PrintPageContent() {
               </p>
               {job.payment_status === "PAID" ? (
                 <div className="space-y-3">
-                  <Badge>{mapPrintJobStatus(job).label}</Badge>
+                  <PrintJobStatusChip job={job} />
                   <p className="text-primary font-medium">Paid — scan the kiosk to print</p>
                   <LinkButton href="/scan" className="w-full">
                     Scan kiosk

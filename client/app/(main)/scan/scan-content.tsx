@@ -19,6 +19,7 @@ import { apiFetch, apiFetchPublic, fetchPrintJobs } from "@/lib/api";
 import { clearKioskContext, writeKioskContext } from "@/lib/kiosk-context";
 import { formatJobAmount, formatJobSummary } from "@/lib/print-job-display";
 import { mapPrintJobStatus } from "@/lib/map-print-job-status";
+import { PrintJobStatusChip } from "@/components/print/print-job-status-chip";
 import { pageMaxWidthClass } from "@/lib/layout";
 import type { Kiosk, KioskServiceStatus, PrintJob } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -359,7 +360,7 @@ export default function ScanPage() {
             {jobs.map((job) => {
               const amount = formatJobAmount(job);
               const selected = selectedIds.has(job.id);
-              const { label: statusLabel, message: statusMessage } = mapPrintJobStatus(job);
+              const { message: statusMessage } = mapPrintJobStatus(job);
               return (
                 <Card
                   key={job.id}
@@ -395,7 +396,7 @@ export default function ScanPage() {
                           <p className="text-xs text-muted-foreground">{kiosk.name}</p>
                         )}
                         <div className="flex flex-wrap items-center gap-2 pt-1">
-                          <Badge variant="secondary">{statusLabel}</Badge>
+                          <PrintJobStatusChip job={job} />
                           <span className="text-xs text-muted-foreground">{job.job_number}</span>
                         </div>
                         {statusMessage && (

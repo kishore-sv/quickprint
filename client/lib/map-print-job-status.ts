@@ -1,18 +1,7 @@
+import { PRINT_JOB_STATUS_LABELS } from "@/lib/print-job-status-config";
 import type { DisplayStatus, PrintJob, PrintJobDetail } from "@/lib/types";
 
-/** Canonical user-facing labels — must match backend LIFECYCLE_STATUS_LABELS. */
-export const PRINT_JOB_STATUS_LABELS: Record<DisplayStatus, string> = {
-  AWAITING_PAYMENT: "Needs payment",
-  QUEUED: "In queue",
-  RECEIVED: "Kiosk received",
-  DOWNLOADING: "Downloading",
-  READY: "File prepared",
-  PRINTING: "Printing",
-  COMPLETED: "Printed",
-  FAILED: "Failed",
-  CANCELLED: "Cancelled",
-  EXPIRED: "Expired",
-};
+export { PRINT_JOB_STATUS_LABELS };
 
 export type MappedPrintJobStatus = {
   status: DisplayStatus;

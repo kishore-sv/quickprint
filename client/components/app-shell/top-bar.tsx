@@ -23,15 +23,12 @@ export function TopBar() {
       className="fixed top-0 right-0 left-0 z-40 border-b bg-background/80 backdrop-blur-sm supports-[backdrop-filter]:bg-background/70"
     >
       <div className={`flex items-center justify-between px-4 py-3 ${pageMaxWidthClass}`}>
-        <Button
-          variant="link"
-          size="sm"
-          nativeButton={false}
-          render={<Link href="/home" />}
+        <Link
           className="font-heading h-auto p-0 text-lg font-semibold tracking-tight no-underline hover:no-underline"
+          href="/"
         >
           QuickPrint
-        </Button>
+        </Link>
         <div className="flex items-center gap-2">
           <span className="max-w-[120px] truncate text-sm text-muted-foreground">{displayName}</span>
           <Avatar className="size-8">

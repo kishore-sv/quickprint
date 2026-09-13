@@ -1,7 +1,6 @@
 "use client";
 
 import { FileText } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { LinkButton } from "@/components/ui/link-button";
@@ -14,6 +13,7 @@ import {
   jobNeedsPayment,
 } from "@/lib/print-job-display";
 import { mapPrintJobStatus } from "@/lib/map-print-job-status";
+import { PrintJobStatusChip } from "@/components/print/print-job-status-chip";
 import type { PrintJob } from "@/lib/types";
 import { toast } from "@/components/ui/toast";
 
@@ -48,16 +48,8 @@ export function PrintJobCard({ job, onRemove, removing }: PrintJobCardProps) {
           </div>
         </div>
 
-        {needsPayment && (
-          <Badge
-            variant="outline"
-            className="border-amber-300/80 bg-amber-100 text-amber-950 dark:border-amber-700 dark:bg-amber-950/80 dark:text-amber-100"
-          >
-            Needs payment
-          </Badge>
-        )}
-        {(inQueue || atKiosk) && (
-          <Badge variant="secondary">{mapped.label}</Badge>
+        {(needsPayment || inQueue || atKiosk) && (
+          <PrintJobStatusChip status={mapped.status} label={mapped.label} />
         )}
 
         <div className="flex flex-wrap gap-2">
@@ -153,12 +145,7 @@ export function DraftSessionCard({ filename, pageCount, onRemove }: DraftSession
             </p>
           </div>
         </div>
-        <Badge
-          variant="outline"
-          className="border-amber-300/80 bg-amber-100 text-amber-950 dark:border-amber-700 dark:bg-amber-950/80 dark:text-amber-100"
-        >
-          Needs payment
-        </Badge>
+        <PrintJobStatusChip status="AWAITING_PAYMENT" />
         <div className="flex flex-wrap gap-2">
           <LinkButton href="/print" size="sm">
             Set up

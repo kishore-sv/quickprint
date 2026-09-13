@@ -2,8 +2,8 @@
 
 import { useEffect, useRef } from "react";
 import { useParams } from "next/navigation";
-import { CheckCircle2 } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
+import { CheckCircle2, Circle, CircleCheckBig, Loader } from "lucide-react";
+import { PrintJobStatusChip } from "@/components/print/print-job-status-chip";
 import { Spinner } from "@/components/ui/spinner";
 import { pageMaxWidthClass } from "@/lib/layout";
 import { playPrintCompleteSound, printPickupMessage } from "@/lib/print-complete-feedback";
@@ -56,15 +56,10 @@ export default function PrintJobStatusPage() {
   const pickupMessage = isSuccess ? printPickupMessage(job) : message;
 
   return (
-    <div className={cn("flex flex-col gap-6 py-8", pageMaxWidthClass)}>
+    <div className={cn("flex flex-col gap-4 py-2", pageMaxWidthClass)}>
       <div>
         <h1 className="font-heading text-2xl font-bold tracking-tight">Print status</h1>
-        <Badge
-          className="mt-2"
-          variant={isSuccess ? "default" : isFailed ? "destructive" : "secondary"}
-        >
-          {label}
-        </Badge>
+        <PrintJobStatusChip status={mapPrintJobStatus(job).status} label={label} className="mt-2" />
       </div>
 
       {isSuccess && (
@@ -76,7 +71,17 @@ export default function PrintJobStatusPage() {
           <CheckCircle2 className="mt-0.5 size-6 shrink-0" aria-hidden />
           <div className="space-y-1">
             <p className="font-heading text-base font-semibold">All done!</p>
-            <p className="text-sm leading-relaxed">{pickupMessage}</p>
+            <p className="text-sm leading-relaxed">
+              {job.kiosk_code || job.kiosk_name ? (
+                <>
+                  Your print is ready at{" "}
+                  <span className="font-bold">{job.kiosk_code ?? job.kiosk_name}</span>. Please
+                  collect it from the tray.
+                </>
+              ) : (
+                pickupMessage
+              )}
+            </p>
           </div>
         </div>
       )}
@@ -121,21 +126,27 @@ export default function PrintJobStatusPage() {
         </p>
       )}
 
-      <ol className="flex flex-col gap-2 border-l-2 border-muted pl-4">
+      <ol className="flex flex-col gap-3">
         {steps.map((step) => {
           const stepLabel = STEP_LABELS[step.key];
-          const icon = step.done ? "✓ " : step.active ? "● " : "○ ";
           return (
             <li
               key={step.key}
               className={cn(
-                step.done && "text-muted-foreground",
+                "flex items-center gap-2.5 text-md",
+                step.done && "text-green-500",
                 step.active && "font-medium text-foreground",
-                step.key === "printed" && step.done && "font-medium text-primary"
+                !step.done && !step.active && "text-muted-foreground"
               )}
             >
-              {icon}
-              {stepLabel}
+              {step.done ? (
+                <CircleCheckBig className="size-5 shrink-0 text-green-500" aria-hidden />
+              ) : step.active ? (
+                <Loader className="size-5 shrink-0 animate-spin" aria-hidden />
+              ) : (
+                <Circle className="size-5 shrink-0 text-muted-foreground/35" aria-hidden />
+              )}
+              <span>{stepLabel}</span>
             </li>
           );
         })}

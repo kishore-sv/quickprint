@@ -17,6 +17,7 @@ import { apiFetch, fetchPrintJobs } from "@/lib/api";
 import { clearPrintFlowSession, readPrintFlowSession } from "@/lib/print-session";
 import type { PrintJob } from "@/lib/types";
 import { toast } from "@/components/ui/toast";
+import { PlusIcon, ScanIcon } from "lucide-react";
 
 const SKELETON_COUNT = 2;
 
@@ -93,12 +94,12 @@ export default function HomePageContent() {
         </p>
       </div>
 
-      <div className="flex flex-col gap-3">
-        <LinkButton href="/print" size="lg" className="w-full">
-          Start printing
+      <div className="flex flex-col gap-3 justify-center items-center">
+        <LinkButton href="/print" size="lg" className="md:w-1/2 w-full transition-none">
+         <PlusIcon className="size-4 mr-2"/> Start printing
         </LinkButton>
-        <LinkButton href="/scan" variant="outline" size="lg" className="w-full">
-          Scan kiosk
+        <LinkButton href="/scan" variant="outline" size="lg" className="md:w-1/2 w-full transition-none">
+          <ScanIcon className="size-4 mr-2"/> Scan kiosk
         </LinkButton>
       </div>
 

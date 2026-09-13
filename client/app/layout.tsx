@@ -32,14 +32,16 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       className={cn("h-full", "antialiased", geistSans.variable, geistMono.variable, "font-sans", inter.variable, robotoHeading.variable)}
       suppressHydrationWarning
     >
-      <body className="min-h-full flex flex-col selection:bg-primary selection:text-primary-foreground">
+      <body className="flex h-dvh max-h-dvh flex-col overflow-hidden selection:bg-primary selection:text-primary-foreground">
       <ThemeProvider
             attribute="class"
             defaultTheme="system"
             enableSystem
             disableTransitionOnChange
           >
-          <TooltipProvider>{children}</TooltipProvider>
+          <TooltipProvider>
+            <div className="flex min-h-0 flex-1 flex-col">{children}</div>
+          </TooltipProvider>
           </ThemeProvider>
         <Toaster />
       </body>

@@ -3,7 +3,6 @@
 import { useEffect, useState } from "react";
 import { format } from "date-fns";
 import { FileText } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   Empty,
@@ -15,9 +14,9 @@ import { LinkButton } from "@/components/ui/link-button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "@/components/ui/toast";
 import { apiFetch } from "@/lib/api";
-import { mapPrintJobStatus } from "@/lib/map-print-job-status";
+import { PrintJobStatusChip } from "@/components/print/print-job-status-chip";
 import type { PrintJob, PrintJobListResponse } from "@/lib/types";
-import { cn } from "@/lib/utils";
+import Link from "next/link";
 
 function HistoryJobSkeleton() {
   return (
@@ -66,45 +65,6 @@ function jobMetaLine(job: PrintJob) {
   ].join(" · ");
 }
 
-type StatusPresentation = {
-  label: string;
-  badgeClass: string;
-};
-
-function jobStatusPresentation(job: PrintJob): StatusPresentation {
-  const { status, label, isTerminal } = mapPrintJobStatus(job);
-
-  if (status === "AWAITING_PAYMENT") {
-    return {
-      label,
-      badgeClass:
-        "border-transparent bg-orange-100 text-orange-900 hover:bg-orange-100 dark:bg-orange-950/50 dark:text-orange-200",
-    };
-  }
-
-  if (isTerminal) {
-    return {
-      label,
-      badgeClass:
-        "border-transparent bg-muted text-muted-foreground hover:bg-muted",
-    };
-  }
-
-  if (status === "QUEUED") {
-    return {
-      label,
-      badgeClass:
-        "border-transparent bg-sky-100 text-sky-900 hover:bg-sky-100 dark:bg-sky-950/50 dark:text-sky-200",
-    };
-  }
-
-  return {
-    label,
-    badgeClass:
-      "border-transparent bg-violet-100 text-violet-900 hover:bg-violet-100 dark:bg-violet-950/50 dark:text-violet-200",
-  };
-}
-
 function daysLeft(until: string | null) {
   if (!until) return null;
   const diff = new Date(until).getTime() - Date.now();
@@ -113,7 +73,6 @@ function daysLeft(until: string | null) {
 
 function HistoryJobCard({ job }: { job: PrintJob }) {
   const savedDays = daysLeft(job.file_retention_until);
-  const status = jobStatusPresentation(job);
   const amount = formatAmount(job.amount_paise);
   const showPrintAgain =
     job.saved_file_id && job.save_file && savedDays !== null && savedDays > 0;
@@ -144,9 +103,10 @@ function HistoryJobCard({ job }: { job: PrintJob }) {
           </p>
 
           <div className="mt-2.5 flex flex-wrap items-center gap-2">
-            <Badge className={cn("rounded-full px-2.5 py-0.5 font-medium", status.badgeClass)}>
-              {status.label}
-            </Badge>
+            <PrintJobStatusChip
+              job={job}
+              className="rounded-full px-2.5 py-0.5 font-medium"
+            />
             {savedDays != null && job.save_file && (
               <span className="text-xs text-muted-foreground">
                 Saved {savedDays}d left
@@ -213,15 +173,12 @@ export default function HistoryPage() {
     <div className="flex flex-col gap-4">
       <div className="flex items-center justify-between gap-3">
         <h1 className="font-heading text-2xl font-bold tracking-tight">History</h1>
-        <Button
-          type="button"
-          variant="link"
-          size="sm"
-          className="h-auto shrink-0 p-0 text-sm font-medium text-primary"
-          onClick={() => toast.add({ title: "Presets are coming soon", type: "info" })}
+        <Link
+          href="/presets"
+          className="h-auto shrink-0 p-0 text-sm font-medium text-primary hover:underline transition-none underline-offset-4"
         >
-          My presets
-        </Button>
+          My Presets
+        </Link>
       </div>
 
       {loading && (

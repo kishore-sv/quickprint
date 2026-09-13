@@ -9,7 +9,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     >
       <TopBar />
       <main
-        className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-y-contain px-4 pt-[calc(3.5rem+1rem)] pb-24 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+        className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-y-contain px-4 pt-[calc(3.5rem+0.5rem)] pb-[calc(3.5rem+env(safe-area-inset-bottom))] [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
       >
         {children}
       </main>

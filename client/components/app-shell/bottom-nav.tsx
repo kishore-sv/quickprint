@@ -34,7 +34,7 @@ export function BottomNav() {
               nativeButton={false}
               render={<Link href={href} />}
               className={cn(
-                "h-auto flex-1 flex-col gap-0.5 py-2 text-xs font-normal normal-case tracking-normal",
+                "h-auto flex-1 flex-col gap-0.5 py-2 text-xs font-normal normal-case tracking-normal shadow-none",
                 active ? "text-primary font-medium" : "text-muted-foreground"
               )}
             >
