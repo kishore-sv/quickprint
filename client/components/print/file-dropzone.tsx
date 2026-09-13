@@ -30,10 +30,8 @@ export function FileDropzone({
     [onFilesSelected]
   );
 
-  const { getRootProps, getInputProps, isDragActive, open } = useDropzone({
+  const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
-    noClick: true,
-    noKeyboard: true,
     multiple: true,
     disabled: disabled || validating,
     accept: {
@@ -45,37 +43,34 @@ export function FileDropzone({
     <div className={cn("flex flex-col gap-3", className)}>
       <Card
         {...getRootProps()}
+        size="sm"
         className={cn(
-          "cursor-pointer border-dashed shadow-none transition-colors",
+          "cursor-pointer border-dashed py-0 px-2 mx-auto w-[99%] shadow-none transition-colors",
           isDragActive && "border-primary bg-primary/5",
           (disabled || validating) && "pointer-events-none opacity-60"
         )}
       >
-        <CardContent className="px-6 py-10 text-center">
+        <CardContent className="px-4 py-6 text-center sm:px-6">
           <input {...getInputProps()} />
-          <div className="mx-auto mb-4 flex size-12 items-center justify-center rounded-full bg-primary/10 text-primary">
+          <div className="mx-auto mb-3 flex size-10 items-center justify-center rounded-full bg-primary/10 text-primary">
             {validating ? (
-              <Spinner className="size-6" />
+              <Spinner className="size-5" />
             ) : (
-              <UploadIcon className="size-6" />
+              <UploadIcon className="size-5" />
             )}
           </div>
           <p className="text-base font-semibold">Choose files</p>
           <p className="text-muted-foreground mt-1 text-sm">
             pick as many as you need, or drop them here
           </p>
-          <p className="text-muted-foreground mt-4 text-xs">
+          <p className="text-muted-foreground mt-2 text-xs">
             PDF only — validated before upload · up to 20 MB
           </p>
           <Button
             type="button"
             variant="secondary"
-            className="mt-6 w-full max-w-xs"
+            className="mt-4 w-full max-w-xs"
             disabled={disabled || validating}
-            onClick={(e) => {
-              e.stopPropagation();
-              open();
-            }}
           >
             Browse files
           </Button>

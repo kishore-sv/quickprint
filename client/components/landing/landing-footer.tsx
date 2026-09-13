@@ -1,5 +1,5 @@
-import Image from "next/image";
 import Link from "next/link";
+import { QuickPrintLogo } from "@/components/quickprint-logo";
 import { LEGAL_CONTACT_EMAIL } from "@/lib/legal-meta";
 
 const footerLinks = [
@@ -17,8 +17,8 @@ export function LandingFooter() {
     <footer className="border-t bg-muted/20 px-4 py-12">
       <div className="mx-auto grid max-w-6xl gap-10 md:grid-cols-[1.2fr_1fr]">
         <div>
-          <Link href="/" className="inline-flex shrink-0" aria-label="QuickPrint home">
-            <Image src="/logo.png" alt="" width={100} height={100} className="size-18 rounded-md" />
+          <Link href="/" className="inline-flex shrink-0 items-center" aria-label="QuickPrint home">
+            <QuickPrintLogo className="text-2xl" />
           </Link>
           <p className="mt-4 max-w-sm text-muted-foreground text-sm leading-relaxed">
             Self-service printing at nearby kiosks. Upload from your phone, pay online, and collect when
