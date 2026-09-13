@@ -1,31 +1,11 @@
-"use client";
+import type { Metadata } from "next";
+import { AuthLayoutClient } from "@/app/(auth)/auth-layout-client";
+import { PRIVATE_ROBOTS } from "@/lib/seo";
 
-import { useEffect } from "react";
-import { useRouter } from "next/navigation";
-import { authClient } from "@/lib/auth-client";
-import { Spinner } from "@/components/ui/spinner";
+export const metadata: Metadata = {
+  robots: PRIVATE_ROBOTS,
+};
 
 export default function AuthLayout({ children }: { children: React.ReactNode }) {
-  const router = useRouter();
-  const { data: session, isPending } = authClient.useSession();
-
-  useEffect(() => {
-    if (!isPending && session?.session) {
-      router.replace("/home");
-    }
-  }, [isPending, session, router]);
-
-  if (isPending) {
-    return (
-      <div className="flex min-h-dvh items-center justify-center">
-        <Spinner className="size-8" />
-      </div>
-    );
-  }
-
-  if (session?.session) {
-    return null;
-  }
-
-  return children;
+  return <AuthLayoutClient>{children}</AuthLayoutClient>;
 }

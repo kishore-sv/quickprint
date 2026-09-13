@@ -1,10 +1,11 @@
-import type { Metadata } from "next";
 import { Geist, Geist_Mono, Inter, Roboto } from "next/font/google";
 import "./globals.css";
+import { SiteJsonLd } from "@/components/seo/json-ld";
 import { cn } from "@/lib/utils";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Toaster } from "@/components/ui/toast";
 import { ThemeProvider } from "@/components/theme-provider";
+import { rootMetadata } from "@/lib/seo";
 
 const robotoHeading = Roboto({subsets:['latin'],variable:'--font-heading'});
 
@@ -20,10 +21,7 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
-export const metadata: Metadata = {
-  title: "QuickPrint",
-  description: "Print documents without waiting in line.",
-};
+export const metadata = rootMetadata;
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
@@ -33,6 +31,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       suppressHydrationWarning
     >
       <body className="flex h-dvh max-h-dvh flex-col overflow-hidden selection:bg-primary selection:text-primary-foreground">
+        <SiteJsonLd />
       <ThemeProvider
             attribute="class"
             defaultTheme="system"

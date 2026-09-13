@@ -1,23 +1,13 @@
-"use client";
+import { LandingPage } from "@/components/landing/landing-page";
+import { createPageMetadata } from "@/lib/seo";
 
-import { useEffect } from "react";
-import { useRouter } from "next/navigation";
-import { authClient } from "@/lib/auth-client";
-import { Spinner } from "@/components/ui/spinner";
+export const metadata = createPageMetadata({
+  title: "QuickPrint – Fast Self-Service Printing",
+  description:
+    "Upload your document, choose print settings, pay online, and collect from a QuickPrint self-service kiosk near you.",
+  path: "/",
+});
 
-export default function RootPage() {
-  const router = useRouter();
-  const { data: session, isPending } = authClient.useSession();
-
-  useEffect(() => {
-    if (isPending) return;
-    router.replace(session?.session ? "/home" : "/sign-in");
-  }, [isPending, session, router]);
-
-  return (
-    <div className="flex min-h-dvh flex-col items-center justify-center gap-2">
-      <Spinner className="size-8 text-primary" />
-      <p className="text-muted-foreground text-sm">Loading…</p>
-    </div>
-  );
+export default function HomePage() {
+  return <LandingPage />;
 }

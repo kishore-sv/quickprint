@@ -1,9 +1,11 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
 import { cn } from "cn";
 import { appCallbackUrl, authClient } from "@/lib/auth-client";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { LinkButton } from "@/components/ui/link-button";
 import {
   Card,
@@ -35,10 +37,15 @@ export function SignupForm({
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
+  const [termsAccepted, setTermsAccepted] = useState(false);
 
   const busy = loading || googleLoading;
 
   const onGoogle = async () => {
+    if (!termsAccepted) {
+      setError("Please accept the Terms of Service and Privacy Policy to continue.");
+      return;
+    }
     setGoogleLoading(true);
     setError(null);
     const { error: err } = await authClient.signIn.social({
@@ -52,6 +59,10 @@ export function SignupForm({
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+    if (!termsAccepted) {
+      setError("Please accept the Terms of Service and Privacy Policy to continue.");
+      return;
+    }
     if (password !== confirmPassword) {
       setError("Passwords do not match.");
       return;
@@ -156,13 +167,39 @@ export function SignupForm({
                 </Field>
                 <FieldDescription>Must be at least 8 characters long.</FieldDescription>
               </Field>
+              <Field className="gap-3">
+                <div className="flex items-start gap-3">
+                  <Checkbox
+                    id="terms-accepted"
+                    checked={termsAccepted}
+                    onCheckedChange={(checked) => setTermsAccepted(checked === true)}
+                    disabled={busy}
+                    aria-describedby="terms-accepted-description"
+                  />
+                  <label
+                    id="terms-accepted-description"
+                    htmlFor="terms-accepted"
+                    className="text-muted-foreground text-sm leading-relaxed"
+                  >
+                    By creating an account, you agree to our{" "}
+                    <Link className="text-primary underline-offset-4 hover:underline" href="/terms">
+                      Terms of Service
+                    </Link>{" "}
+                    and acknowledge our{" "}
+                    <Link className="text-primary underline-offset-4 hover:underline" href="/policy">
+                      Privacy Policy
+                    </Link>
+                    .
+                  </label>
+                </div>
+              </Field>
               {error && (
                 <p className="text-destructive text-center text-sm" role="alert">
                   {error}
                 </p>
               )}
               <Field>
-                <Button type="submit" className="w-full" disabled={busy}>
+                <Button type="submit" className="w-full" disabled={busy || !termsAccepted}>
                   {loading ? (
                     <>
                       <Spinner className="size-4" />
@@ -183,9 +220,6 @@ export function SignupForm({
           </form>
         </CardContent>
       </Card>
-      <FieldDescription className="px-6 text-center">
-        By creating an account, you agree to print responsibly on campus kiosks.
-      </FieldDescription>
     </div>
   );
 }
