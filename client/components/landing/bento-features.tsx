@@ -7,6 +7,12 @@ import {
   UploadIcon,
 } from "lucide-react";
 import { LandingSection } from "@/components/landing/landing-section";
+import { KioskConvenienceIllustration } from "@/components/landing/kiosk-convenience-illustration";
+import { PayIllustration } from "@/components/landing/pay-illustration";
+import { PrintOptionsIllustration } from "@/components/landing/print-options-illustration";
+import { ScanIllustration } from "@/components/landing/scan-illustration";
+import { TrackJobIllustration } from "@/components/landing/track-job-illustration";
+import { UploadIllustration } from "@/components/landing/upload-illustration";
 import { cn } from "@/lib/utils";
 
 const features = [
@@ -22,7 +28,7 @@ const features = [
     description: "Add your documents from your phone. Supported formats include PDF and common image types.",
     icon: UploadIcon,
     className: "md:col-span-1",
-    illustration: UploadIcon,
+    illustration: UploadIllustration,
   },
   {
     title: "Flexible print options",
@@ -30,28 +36,28 @@ const features = [
       "Choose copies, color or black & white, page range, duplex, and paper size before you pay.",
     icon: SettingsIcon,
     className: "md:col-span-1",
-    illustration: SettingsIcon,
+    illustration: PrintOptionsIllustration,
   },
   {
     title: "Pay online",
     description: "Complete payment securely online so your job can be sent to the kiosk printer.",
     icon: CreditCardIcon,
     className: "md:col-span-1",
-    illustration: CreditCardIcon,
+    illustration: PayIllustration,
   },
   {
     title: "Track your job",
     description: "Follow your print status from queued to ready, with clear updates along the way.",
     icon: ClockIcon,
     className: "md:col-span-1",
-    illustration: ClockIcon,
+    illustration: TrackJobIllustration,
   },
   {
     title: "Kiosk convenience",
-    description: "Print when you are on campus or near a kiosk — no need to carry files to a shop.",
+    description: "Print when you are on campus or near a kiosk - no need to carry files to a shop.",
     icon: MapPinIcon,
     className: "md:col-span-2",
-    illustration: MapPinIcon,
+    illustration: KioskConvenienceIllustration,
   },
 ];
 
@@ -77,20 +83,10 @@ export function BentoFeatures() {
           >
             <h3 className="font-heading text-lg font-medium">{feature.title}</h3>
             <p className="mt-2 text-muted-foreground text-sm leading-relaxed">{feature.description}</p>
-            {feature.illustration && <feature.illustration className={cn(feature.className)} />}
+            {feature.illustration && <feature.illustration />}
           </div>
         ))}
       </div>
     </LandingSection>
-  );
-}
-
-function ScanIllustration({ className }: { className: string }) {
-  return (
-    <div className={cn("h-40 w-full bg-red-600 flex items-center justify-between px-4 md:px-10", className)}>
-      <div className="size-10 bg-blue-600"></div>
-      <div className="size-10 bg-green-600"></div>
-
-    </div>
   );
 }
