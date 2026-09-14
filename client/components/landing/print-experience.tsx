@@ -1,4 +1,5 @@
 import { FileIcon, PrinterIcon, SmartphoneIcon } from "lucide-react";
+import { AnimationPauseRoot } from "@/components/landing/animation-pause-root";
 import { LandingSection } from "@/components/landing/landing-section";
 
 const stages = [
@@ -32,7 +33,7 @@ export function PrintExperience() {
             settings and payment on your phone, then collect your documents when the job is done.
           </p>
         </div>
-        <div className="rounded-2xl border bg-card p-6 shadow-sm md:p-8">
+        <AnimationPauseRoot className="rounded-2xl border bg-card p-6 shadow-sm md:p-8">
           <div className="flex flex-col gap-4 sm:grid sm:grid-cols-3 sm:gap-4">
             {stages.map((stage) => (
               <div key={stage.label} className="flex items-center gap-3 sm:flex-col sm:text-center">
@@ -91,7 +92,7 @@ export function PrintExperience() {
               }
             `}</style>
           </div>
-        </div>
+        </AnimationPauseRoot>
       </div>
     </LandingSection>
   );

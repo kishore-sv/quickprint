@@ -1,6 +1,7 @@
 "use client";
 
 import { CheckIcon } from "lucide-react";
+import { AnimationPauseRoot } from "@/components/landing/animation-pause-root";
 import { PhoneMockup } from "@/components/landing/phone-mockup";
 import { cn } from "@/lib/utils";
 
@@ -67,7 +68,7 @@ function PaymentSuccessBurst() {
 
 export function PayIllustration({ className }: PayIllustrationProps) {
   return (
-    <div
+    <AnimationPauseRoot
       className={cn(
         "relative mt-6 flex h-44 w-full items-center justify-center overflow-hidden rounded-xl bg-card mask-x-from-98% mask-x-to-100% mask-y-from-85% mask-y-to-100%",
         className
@@ -197,6 +198,6 @@ export function PayIllustration({ className }: PayIllustrationProps) {
         </div>
         <PaymentSuccessBurst />
       </PhoneMockup>
-    </div>
+    </AnimationPauseRoot>
   );
 }

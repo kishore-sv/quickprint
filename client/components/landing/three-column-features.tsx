@@ -28,7 +28,7 @@ const hoverShadow = "0 20px 40px -12px color-mix(in oklch, var(--foreground) 18%
 const pillars = [
   {
     title: "Simple",
-    description: "A guided flow on your phone — scan, upload, configure, pay, and collect.",
+    description: "A guided flow on your phone - scan, upload, configure, pay, and collect.",
     icon: SparklesIcon,
   },
   {
@@ -67,9 +67,9 @@ function PillarCard({
   const prefersReducedMotion = useReducedMotion();
 
   return (
-    <div className="relative h-full overflow-visible">
+    <div className="relative isolate h-full overflow-visible">
       <div
-        className="pointer-events-none absolute inset-0 min-h-[10rem] rounded-2xl border border-border"
+        className="pointer-events-none absolute inset-0 z-0 min-h-40 rounded-2xl border border-border"
         aria-hidden="true"
         style={{ backgroundImage: linesBackground }}
       />
@@ -83,7 +83,7 @@ function PillarCard({
         }
         transition={springTransition}
         className={cn(
-          "relative h-full min-h-[10rem] rounded-2xl border border-border bg-card p-6",
+          "relative z-10 h-full min-h-40 rounded-2xl border border-border bg-card p-6",
           prefersReducedMotion && "transition-shadow duration-300"
         )}
       >

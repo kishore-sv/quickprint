@@ -1,5 +1,6 @@
 "use client";
 
+import { AnimationPauseRoot } from "@/components/landing/animation-pause-root";
 import { cn } from "@/lib/utils";
 
 type PrintOptionsIllustrationProps = {
@@ -84,7 +85,7 @@ const STAGE_LABELS = ["A4 · B&W", "A3 · B&W", "A3 · Color", "2-in-1"] as cons
 
 export function PrintOptionsIllustration({ className }: PrintOptionsIllustrationProps) {
   return (
-    <div
+    <AnimationPauseRoot
       className={cn(
         "relative mt-6 flex h-44 w-full flex-col items-center justify-center overflow-hidden rounded-xl border border-border/60 bg-card mask-x-from-98% mask-x-to-100% mask-y-from-85% mask-y-to-100%",
         className
@@ -286,6 +287,6 @@ export function PrintOptionsIllustration({ className }: PrintOptionsIllustration
           <SheetContent />
         </div>
       </div>
-    </div>
+    </AnimationPauseRoot>
   );
 }

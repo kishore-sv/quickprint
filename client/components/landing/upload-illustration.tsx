@@ -1,6 +1,7 @@
 "use client";
 
 import { CheckIcon, FileTextIcon } from "lucide-react";
+import { AnimationPauseRoot } from "@/components/landing/animation-pause-root";
 import { PhoneMockup } from "@/components/landing/phone-mockup";
 import { cn } from "@/lib/utils";
 
@@ -51,7 +52,7 @@ function KioskTerminalBox() {
 
 export function UploadIllustration({ className }: UploadIllustrationProps) {
   return (
-    <div
+    <AnimationPauseRoot
       className={cn(
         "relative mt-6 flex h-44 w-full items-center overflow-hidden rounded-xl border border-border/60 bg-card mask-x-from-98% mask-x-to-100% mask-y-from-85% mask-y-to-100%",
         className
@@ -143,6 +144,6 @@ export function UploadIllustration({ className }: UploadIllustrationProps) {
       <div className="absolute right-[6%] top-1/2 z-10 shrink-0 -translate-y-1/2">
         <KioskTerminalBox />
       </div>
-    </div>
+    </AnimationPauseRoot>
   );
 }

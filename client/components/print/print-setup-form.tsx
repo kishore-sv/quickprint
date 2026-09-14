@@ -848,16 +848,16 @@ export function PrintSetupForm({
       className="pointer-events-none fixed inset-x-0 z-40 px-4"
       style={{ bottom: BOTTOM_NAV_CLEARANCE }}
     >
-      <div className={cn("pointer-events-auto mx-auto w-full", pageMaxWidthClass)}>
+      <div className={cn("pointer-events-auto mx-auto w-full ", pageMaxWidthClass)}>
         <div
-          className="flex w-full min-w-0 items-center justify-between gap-3 rounded-2xl bg-zinc-900 px-3 py-3 text-white shadow-lg sm:px-4"
+          className="flex w-full min-w-0 items-center justify-between gap-3 rounded-2xl backdrop-blur-sm bg-background/70 ring-2 ring-border ring-offset-2 ring-offset-blue-500 px-3 py-3 shadow-lg sm:px-4"
         >
           <div className="min-w-0 flex-1">
-            <p className="text-xs text-zinc-400">Total</p>
+            <p className="text-xs text-muted-foreground">Total</p>
             <p className="text-xl font-semibold tabular-nums sm:text-2xl">
               ₹{formatRupees(price.totalPaise)}
             </p>
-            <p className="truncate text-[11px] text-zinc-400 sm:text-xs">
+            <p className="truncate text-[11px] text-muted-foreground sm:text-xs">
               {price.physicalSheets} sheets · {price.pagesInRange} pages · {estSeconds} sec
             </p>
           </div>

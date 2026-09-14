@@ -1,6 +1,7 @@
 "use client";
 
 import { Circle, CircleCheckBig, Loader } from "lucide-react";
+import { AnimationPauseRoot } from "@/components/landing/animation-pause-root";
 import { STEP_LABELS } from "@/lib/print-job-status";
 import { getPrintJobStatusChipClassName } from "@/lib/print-job-status-config";
 import type { DisplayStatus } from "@/lib/types";
@@ -206,7 +207,7 @@ function StepRow({ index, label }: { index: number; label: string }) {
 
 export function TrackJobIllustration({ className }: TrackJobIllustrationProps) {
   return (
-    <div
+    <AnimationPauseRoot
       className={cn(
         "relative mt-6 flex h-44 w-full flex-col items-center justify-center overflow-hidden rounded-xl border border-border/60 bg-card px-3 mask-x-from-98% mask-x-to-100% mask-y-from-85% mask-y-to-100%",
         className
@@ -254,6 +255,6 @@ export function TrackJobIllustration({ className }: TrackJobIllustrationProps) {
           ))}
         </ol>
       </div>
-    </div>
+    </AnimationPauseRoot>
   );
 }

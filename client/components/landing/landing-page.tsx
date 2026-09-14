@@ -1,19 +1,55 @@
-import { BentoFeatures } from "@/components/landing/bento-features";
-import { FaqSection } from "@/components/landing/faq-section";
-import { FinalCta } from "@/components/landing/final-cta";
+import dynamic from "next/dynamic";
 import { HeroSection } from "@/components/landing/hero-section";
-import { HowItWorks } from "@/components/landing/how-it-works";
-import { LandingAuthRedirect } from "@/components/landing/landing-auth-redirect";
+import { LandingAuthRedirectDeferred } from "@/components/landing/landing-auth-redirect-deferred";
 import { LandingFooter } from "@/components/landing/landing-footer";
 import { LandingNavbar } from "@/components/landing/landing-navbar";
-import { PrintExperience } from "@/components/landing/print-experience";
-import { ThreeColumnFeatures } from "@/components/landing/three-column-features";
-import { TrustSection } from "@/components/landing/trust-section";
+import { LandingSectionPlaceholder } from "@/components/landing/landing-section-placeholder";
+
+const BentoFeatures = dynamic(
+  () => import("@/components/landing/bento-features").then((module) => ({ default: module.BentoFeatures })),
+  { loading: () => <LandingSectionPlaceholder className="min-h-[28rem]" /> }
+);
+
+const HowItWorks = dynamic(
+  () => import("@/components/landing/how-it-works").then((module) => ({ default: module.HowItWorks })),
+  { loading: () => <LandingSectionPlaceholder className="min-h-[36rem]" /> }
+);
+
+const ThreeColumnFeatures = dynamic(
+  () =>
+    import("@/components/landing/three-column-features").then((module) => ({
+      default: module.ThreeColumnFeatures,
+    })),
+  { loading: () => <LandingSectionPlaceholder className="min-h-[16rem]" /> }
+);
+
+const PrintExperience = dynamic(
+  () =>
+    import("@/components/landing/print-experience").then((module) => ({
+      default: module.PrintExperience,
+    })),
+  { loading: () => <LandingSectionPlaceholder className="min-h-[20rem]" /> }
+);
+
+const TrustSection = dynamic(
+  () => import("@/components/landing/trust-section").then((module) => ({ default: module.TrustSection })),
+  { loading: () => <LandingSectionPlaceholder className="min-h-[12rem]" /> }
+);
+
+const FaqSection = dynamic(
+  () => import("@/components/landing/faq-section").then((module) => ({ default: module.FaqSection })),
+  { loading: () => <LandingSectionPlaceholder className="min-h-[24rem]" /> }
+);
+
+const FinalCta = dynamic(
+  () => import("@/components/landing/final-cta").then((module) => ({ default: module.FinalCta })),
+  { loading: () => <LandingSectionPlaceholder className="min-h-[16rem]" /> }
+);
 
 export function LandingPage() {
   return (
     <div className="min-h-dvh overflow-y-auto bg-background">
-      <LandingAuthRedirect />
+      <LandingAuthRedirectDeferred />
       <LandingNavbar />
       <main>
         <HeroSection />

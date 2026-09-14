@@ -1,6 +1,7 @@
 "use client";
 
 import { MapPinIcon } from "lucide-react";
+import { AnimationPauseRoot } from "@/components/landing/animation-pause-root";
 import { cn } from "@/lib/utils";
 
 type KioskConvenienceIllustrationProps = {
@@ -72,7 +73,7 @@ function MapGridBackground() {
 
 export function KioskConvenienceIllustration({ className }: KioskConvenienceIllustrationProps) {
   return (
-    <div
+    <AnimationPauseRoot
       className={cn(
         "relative mt-6 flex h-44 w-full items-center justify-center overflow-hidden rounded-2xl bg-card mask-x-from-72% mask-x-to-100% mask-y-from-68% mask-y-to-100%",
         className
@@ -130,6 +131,6 @@ export function KioskConvenienceIllustration({ className }: KioskConvenienceIllu
           ))}
         </div>
       </div>
-    </div>
+    </AnimationPauseRoot>
   );
 }

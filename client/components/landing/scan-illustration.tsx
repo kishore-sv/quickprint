@@ -1,8 +1,9 @@
 "use client";
 
 import Image from "next/image";
-import { Card, CardContent } from "@/components/ui/card";
+import { AnimationPauseRoot } from "@/components/landing/animation-pause-root";
 import { PhoneMockup } from "@/components/landing/phone-mockup";
+import { Card, CardContent } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 
 type ScanIllustrationProps = {
@@ -52,7 +53,7 @@ function KioskScannerViewport() {
 
 export function ScanIllustration({ className }: ScanIllustrationProps) {
   return (
-    <div
+    <AnimationPauseRoot
       className={cn(
         "relative mt-6 h-44 w-full overflow-hidden rounded-2xl bg-card bg-[radial-gradient(circle,_color-mix(in_oklch,var(--muted-foreground)_30%,transparent)_1px,_transparent_1px)] bg-size-[10px_10px] mask-x-from-72% mask-x-to-100% mask-y-from-68% mask-y-to-100%",
         className
@@ -110,6 +111,6 @@ export function ScanIllustration({ className }: ScanIllustrationProps) {
           </div>
         </div>
       </div>
-    </div>
+    </AnimationPauseRoot>
   );
 }

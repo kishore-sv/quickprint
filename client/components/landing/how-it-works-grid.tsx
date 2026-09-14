@@ -25,7 +25,7 @@ const steps = [
   {
     step: 2,
     title: "Scan the QR code",
-    description: "Use your phone camera to open the kiosk page — no app download required.",
+    description: "Use your phone camera to open the kiosk page - no app download required.",
     icon: QrCodeIcon,
     containerClass: "from-chart-1/20 to-chart-2/10",
     gradientFrom: "chart-1" as GradientToken,
@@ -93,11 +93,6 @@ function getRelativeRect(element: HTMLElement, container: HTMLElement) {
   };
 }
 
-function getCenter(element: HTMLElement, container: HTMLElement): Point {
-  const rect = getRelativeRect(element, container);
-  return { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
-}
-
 function buildSnakePath(centers: Point[]) {
   if (centers.length < 2) return "";
 
@@ -158,12 +153,15 @@ export function HowItWorksGrid() {
   const sparkGlowPathRef = useRef<SVGPathElement>(null);
   const sparkPathRef = useRef<SVGPathElement>(null);
   const cardRefs = useRef<(HTMLLIElement | null)[]>([]);
+  const cardRectsRef = useRef<ReturnType<typeof getRelativeRect>[]>([]);
+  const pathLengthRef = useRef(0);
   const activeCardRef = useRef<number | null>(null);
 
   const [pathD, setPathD] = useState("");
   const [svgSize, setSvgSize] = useState({ width: 0, height: 0 });
   const [activeCardIndex, setActiveCardIndex] = useState<number | null>(null);
   const [reduceMotion, setReduceMotion] = useState(false);
+  const [isVisible, setIsVisible] = useState(false);
 
   const measureLayout = useCallback(() => {
     const container = containerRef.current;
@@ -172,12 +170,19 @@ export function HowItWorksGrid() {
     const containerRect = container.getBoundingClientRect();
     if (containerRect.width === 0 || containerRect.height === 0) return;
 
-    const centers = cardRefs.current
+    const rects = cardRefs.current
       .slice(0, steps.length)
-      .map((card) => (card ? getCenter(card, container) : null))
-      .filter((center): center is Point => center !== null);
+      .map((card) => (card ? getRelativeRect(card, container) : null))
+      .filter((rect): rect is ReturnType<typeof getRelativeRect> => rect !== null);
 
-    if (centers.length !== steps.length) return;
+    if (rects.length !== steps.length) return;
+
+    cardRectsRef.current = rects;
+
+    const centers = rects.map((rect) => ({
+      x: rect.left + rect.width / 2,
+      y: rect.top + rect.height / 2,
+    }));
 
     setSvgSize({ width: containerRect.width, height: containerRect.height });
     setPathD(buildSnakePath(centers));
@@ -214,7 +219,30 @@ export function HowItWorksGrid() {
   }, [measureLayout]);
 
   useEffect(() => {
-    if (reduceMotion || !pathD) {
+    const container = containerRef.current;
+    if (!container) return;
+
+    const observer = new IntersectionObserver(
+      ([entry]) => setIsVisible(entry.isIntersecting),
+      { rootMargin: "120px" }
+    );
+
+    observer.observe(container);
+    return () => observer.disconnect();
+  }, []);
+
+  useEffect(() => {
+    const pathElement = pathRef.current;
+    if (!pathElement || !pathD) {
+      pathLengthRef.current = 0;
+      return;
+    }
+
+    pathLengthRef.current = pathElement.getTotalLength();
+  }, [pathD]);
+
+  useEffect(() => {
+    if (reduceMotion || !pathD || !isVisible) {
       sparkGlowPathRef.current?.style.removeProperty("stroke-dashoffset");
       sparkPathRef.current?.style.removeProperty("stroke-dashoffset");
       activeCardRef.current = null;
@@ -225,14 +253,13 @@ export function HowItWorksGrid() {
     const pathElement = pathRef.current;
     const sparkPathElement = sparkPathRef.current;
     const sparkGlowPathElement = sparkGlowPathRef.current;
-    const container = containerRef.current;
-    if (!pathElement || !sparkPathElement || !sparkGlowPathElement || !container) return;
+    if (!pathElement || !sparkPathElement || !sparkGlowPathElement) return;
 
     let frameId = 0;
     const startTime = performance.now();
 
     const tick = (now: number) => {
-      const pathLength = pathElement.getTotalLength();
+      const pathLength = pathLengthRef.current;
       if (pathLength === 0) {
         frameId = requestAnimationFrame(tick);
         return;
@@ -251,12 +278,7 @@ export function HowItWorksGrid() {
       sparkGlowPathElement.style.strokeDashoffset = offsetStyle;
 
       const point = pathElement.getPointAtLength(pathProgress * pathLength);
-      const rects = cardRefs.current
-        .slice(0, steps.length)
-        .map((card) => (card ? getRelativeRect(card, container) : null))
-        .filter((rect): rect is ReturnType<typeof getRelativeRect> => rect !== null);
-
-      const nextActiveCard = getActiveCardIndex(point, rects);
+      const nextActiveCard = getActiveCardIndex(point, cardRectsRef.current);
       if (nextActiveCard !== activeCardRef.current) {
         activeCardRef.current = nextActiveCard;
         setActiveCardIndex(nextActiveCard);
@@ -268,7 +290,7 @@ export function HowItWorksGrid() {
     frameId = requestAnimationFrame(tick);
 
     return () => cancelAnimationFrame(frameId);
-  }, [pathD, reduceMotion, steps.length]);
+  }, [isVisible, pathD, reduceMotion]);
 
   return (
     <div ref={containerRef} className="relative mt-12">
