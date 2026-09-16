@@ -2,7 +2,7 @@ import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { createServer, type Server } from "http";
 import WebSocket from "ws";
 import { createApp } from "../src/app";
-import { attachKioskAgentWebSocket, WS_PATH } from "../src/ws/kiosk-agent.server";
+import { attachWebSockets, AGENT_WS_PATH } from "../src/ws/attach-websockets";
 import { parseAgentAuthHeader } from "../src/ws/kiosk-agent.protocol";
 
 describe("kiosk WebSocket server", () => {
@@ -12,7 +12,7 @@ describe("kiosk WebSocket server", () => {
   beforeAll(async () => {
     const app = createApp();
     server = createServer(app);
-    attachKioskAgentWebSocket(server);
+    attachWebSockets(server);
     await new Promise<void>((resolve) => {
       server.listen(0, () => {
         const addr = server.address();
@@ -40,7 +40,7 @@ describe("kiosk WebSocket server", () => {
   });
 
   test("rejects connection without auth header", async () => {
-    const ws = new WebSocket(`ws://127.0.0.1:${port}${WS_PATH}`);
+    const ws = new WebSocket(`ws://127.0.0.1:${port}${AGENT_WS_PATH}`);
     const closed = await new Promise<number | undefined>((resolve) => {
       ws.on("close", (code) => resolve(code));
       ws.on("error", () => resolve(undefined));

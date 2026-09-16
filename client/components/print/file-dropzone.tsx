@@ -64,7 +64,7 @@ export function FileDropzone({
             pick as many as you need, or drop them here
           </p>
           <p className="text-muted-foreground mt-2 text-xs">
-            PDF only — validated before upload · up to 20 MB
+            PDF only - validated before upload · up to 20 MB
           </p>
           <Button
             type="button"

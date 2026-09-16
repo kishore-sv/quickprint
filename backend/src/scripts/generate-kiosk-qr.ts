@@ -10,14 +10,12 @@ import { eq, or } from "drizzle-orm";
 import { db, pool } from "../db";
 import { kiosks } from "../db/schema";
 import { env } from "../config/env";
+import { buildKioskScanUrl } from "../utils/kiosk-scan-url";
+
+export { buildKioskScanUrl };
 
 const KIOSK_CODE = "KIOSK-001";
 const KIOSK_NAME = "Kiosk-1";
-
-export function buildKioskScanUrl(publicToken: string, appBaseUrl: string): string {
-  const base = appBaseUrl.replace(/\/$/, "");
-  return `${base}/scan/${encodeURIComponent(publicToken)}`;
-}
 
 async function main() {
   const [kiosk] = await db

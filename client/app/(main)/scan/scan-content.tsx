@@ -6,6 +6,7 @@ import dynamic from "next/dynamic";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { LinkButton } from "@/components/ui/link-button";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
   Empty,
@@ -15,8 +16,8 @@ import {
 } from "@/components/ui/empty";
 import { Spinner } from "@/components/ui/spinner";
 import { PrintJobCardSkeleton } from "@/components/print/print-job-card";
-import { apiFetch, apiFetchPublic, fetchPrintJobs } from "@/lib/api";
-import { clearKioskContext, writeKioskContext } from "@/lib/kiosk-context";
+import { apiFetch, apiFetchPublic, ensureGuestSession, fetchPrintJobs } from "@/lib/api";
+import { clearKioskContext, readKioskContext, writeKioskContext } from "@/lib/kiosk-context";
 import { formatJobAmount, formatJobSummary } from "@/lib/print-job-display";
 import { mapPrintJobStatus } from "@/lib/map-print-job-status";
 import { PrintJobStatusChip } from "@/components/print/print-job-status-chip";
@@ -24,6 +25,7 @@ import { pageMaxWidthClass } from "@/lib/layout";
 import type { Kiosk, KioskServiceStatus, PrintJob } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { toast } from "@/components/ui/toast";
+import { PlusIcon } from "lucide-react";
 
 const QrScanner = dynamic(
   () => import("@yudiel/react-qr-scanner").then((m) => m.Scanner),
@@ -62,6 +64,7 @@ export default function ScanPage() {
   const scanLock = useRef(false);
   const releaseLock = useRef(false);
   const connectHandledRef = useRef<string | null>(null);
+  const restoreHandledRef = useRef(false);
 
   const loadReadyJobs = useCallback(async () => {
     const { items } = await fetchPrintJobs("?view=ready&limit=20&page=1");
@@ -112,10 +115,9 @@ export default function ScanPage() {
       }
       setKioskLoading(true);
       try {
+        await ensureGuestSession();
         const k = await apiFetchPublic<Kiosk>(`/kiosks/${encodeURIComponent(token)}`);
-        const session = await apiFetch<{
-          released_job_ids?: string[];
-        }>(`/kiosks/${encodeURIComponent(token)}/session`, {
+        await apiFetch(`/kiosks/${encodeURIComponent(token)}/session`, {
           method: "POST",
         });
         writeKioskContext({ publicToken: token, name: k.name });
@@ -123,20 +125,6 @@ export default function ScanPage() {
         setKioskToken(token);
         await loadKioskServiceStatus(token);
         toast.add({ title: `Connected to ${k.name}`, type: "success" });
-
-        const released = session.released_job_ids ?? [];
-        if (released.length > 0) {
-          toast.add({
-            title:
-              released.length === 1
-                ? "Sending your job to the kiosk"
-                : `Sending ${released.length} jobs to the kiosk`,
-            type: "success",
-          });
-          router.push(`/print/jobs/${released[0]}`);
-          return;
-        }
-
         await loadReadyJobs();
       } catch (e) {
         toast.add({
@@ -157,6 +145,29 @@ export default function ScanPage() {
     router.replace("/scan");
     void loadKioskFromScan(connectToken);
   }, [searchParams, kiosk, router, loadKioskFromScan]);
+
+  useEffect(() => {
+    if (kiosk || kioskLoading || restoreHandledRef.current) return;
+    if (searchParams.get("connect")?.trim()) return;
+
+    const ctx = readKioskContext();
+    if (!ctx?.publicToken) return;
+
+    restoreHandledRef.current = true;
+    void (async () => {
+      try {
+        await ensureGuestSession();
+        const k = await apiFetchPublic<Kiosk>(
+          `/kiosks/${encodeURIComponent(ctx.publicToken)}`
+        );
+        setKiosk(k);
+        setKioskToken(ctx.publicToken);
+        await loadKioskServiceStatus(ctx.publicToken);
+      } catch {
+        clearKioskContext();
+      }
+    })();
+  }, [kiosk, kioskLoading, searchParams, loadKioskServiceStatus]);
 
   const onQrDetected = (raw: string) => {
     if (kiosk || kioskLoading || scanLock.current) return;
@@ -346,9 +357,17 @@ export default function ScanPage() {
             <EmptyHeader>
               <EmptyTitle>No jobs ready</EmptyTitle>
               <EmptyDescription>
-                Paid jobs that are not yet printed will show here.
+                {kiosk
+                  ? "Upload and pay for a new job - this kiosk stays connected."
+                  : "Paid jobs that are not yet printed will show here."}
               </EmptyDescription>
             </EmptyHeader>
+            {kiosk ? (
+              <LinkButton href="/print" size="lg" className="w-full max-w-sm transition-none">
+                <PlusIcon className="mr-2 size-4" />
+                Start printing
+              </LinkButton>
+            ) : null}
           </Empty>
         ) : (
           <div className="flex flex-col gap-3">

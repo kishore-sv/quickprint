@@ -494,7 +494,12 @@ export default function PrintPageContent() {
             assignJob(updated);
             clearPrintFlowSession();
             activeJobIdRef.current = null;
-            showSuccess("Payment successful — scan the kiosk to print");
+            const connectedKiosk = readKioskContext();
+            showSuccess(
+              connectedKiosk
+                ? `Ready to print at ${connectedKiosk.name}`
+                : "Payment successful — scan the kiosk to print"
+            );
             router.push("/scan");
           } catch (err) {
             showError(err instanceof Error ? err.message : "Payment verification failed");

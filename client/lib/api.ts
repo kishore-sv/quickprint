@@ -1,7 +1,24 @@
-import { authClient } from "@/lib/auth-client";
+import { API_BASE_URL, AUTH_BASE_URL, authClient } from "@/lib/auth-client";
 import type { PrintJobListResponse } from "@/lib/types";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
+const API_URL = API_BASE_URL;
+
+function normalizeOrigin(url: string): string {
+  return url.replace(/\/$/, "");
+}
+
+function assertAuthCanReachApi(hasBearerToken: boolean): void {
+  if (hasBearerToken) return;
+  const authOrigin =
+    typeof window !== "undefined" ? window.location.origin : normalizeOrigin(AUTH_BASE_URL);
+  if (authOrigin !== normalizeOrigin(API_URL)) {
+    throw new ApiError(
+      "Auth and API URLs must match. Set NEXT_PUBLIC_BETTER_AUTH_URL to the same host as NEXT_PUBLIC_API_URL.",
+      0,
+      "AUTH_API_MISMATCH"
+    );
+  }
+}
 
 export class ApiError extends Error {
   constructor(
@@ -45,6 +62,7 @@ export async function apiFetch<T>(
 
   const headers = new Headers(options.headers);
   const token = sessionData.session.token;
+  assertAuthCanReachApi(Boolean(token));
   if (token) {
     headers.set("Authorization", `Bearer ${token}`);
   }

@@ -4,7 +4,7 @@ import express from "express";
 import rateLimit from "express-rate-limit";
 import pinoHttp from "pino-http";
 import { auth } from "./auth";
-import { corsOrigins, env } from "./config/env";
+import { isAllowedCorsOrigin } from "./config/env";
 import { errorMiddleware } from "./middleware/error.middleware";
 import { configRoutes } from "./routes/config.routes";
 import { filesRoutes } from "./routes/files.routes";
@@ -27,8 +27,16 @@ export function createApp() {
 
   app.use(
     cors({
-      origin: [env.FRONTEND_URL, ...corsOrigins()],
+      origin(origin, callback) {
+        if (isAllowedCorsOrigin(origin)) {
+          callback(null, origin ?? true);
+        } else {
+          callback(null, false);
+        }
+      },
       credentials: true,
+      allowedHeaders: ["Content-Type", "Authorization"],
+      exposedHeaders: ["set-auth-token"],
     })
   );
 

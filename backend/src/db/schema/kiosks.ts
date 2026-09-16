@@ -14,6 +14,7 @@ export const kiosks = pgTable(
     updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
     lastSeenAt: timestamp("last_seen_at", { withTimezone: true }),
     agentTokenHash: varchar("agent_token_hash", { length: 128 }),
+    displayTokenHash: varchar("display_token_hash", { length: 128 }),
   },
   (t) => [index("ix_kiosks_kiosk_code").on(t.kioskCode)]
 );

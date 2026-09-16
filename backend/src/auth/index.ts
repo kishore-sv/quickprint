@@ -1,5 +1,5 @@
 import { betterAuth } from "better-auth";
-import { anonymous } from "better-auth/plugins";
+import { anonymous, bearer } from "better-auth/plugins";
 import { env, corsOrigins } from "../config/env";
 import { pool } from "../db";
 
@@ -22,7 +22,7 @@ export const auth = betterAuth({
         },
       }
     : {},
-  plugins: [anonymous()],
+  plugins: [anonymous(), bearer()],
 });
 
 export type AuthSession = typeof auth.$Infer.Session;

@@ -1,18 +1,74 @@
 import { randomUUID } from "crypto";
-import { Router } from "express";
+import express, { Router } from "express";
 import { eq } from "drizzle-orm";
 import { db } from "../db";
 import { kioskSessions, kiosks } from "../db/schema";
 import { requireAuth } from "../middleware/auth.middleware";
-import { releaseReadyJobsToKiosk } from "../services/kiosk-bind.service";
 import { resolveKiosk } from "../services/kiosk.service";
 import { NotFoundError } from "../utils/errors";
 import { paramId } from "../utils/params";
 import { ok } from "../utils/respond";
 import { serializeKioskServiceStatus } from "../services/kiosk-status.service";
 import { serializeKiosk } from "../utils/serializers";
+import {
+  requireKioskDisplayAuth,
+  requireKioskDisplayPairingAuth,
+} from "../middleware/kiosk-display.middleware";
+import { getKioskDisplayState } from "../services/kiosk-display.service";
+import { setDisplaySessionCookie } from "../services/kiosk-display-session.service";
+import {
+  buildKioskDisplayUrl,
+  isAllowedDisplayRedirectUrl,
+  isDisplayFormBootstrapRequest,
+} from "../utils/display-redirect-url";
+import { AuthenticationError } from "../utils/errors";
 
 export const kiosksRoutes = Router();
+
+kiosksRoutes.post(
+  "/kiosks/:kioskCode/display-session",
+  express.urlencoded({ extended: false }),
+  requireKioskDisplayPairingAuth,
+  async (req, res, next) => {
+    try {
+      const kiosk = req.kioskDisplay!;
+      if (kiosk.kioskCode !== paramId(req.params.kioskCode)) {
+        throw new AuthenticationError();
+      }
+      setDisplaySessionCookie(res, kiosk);
+
+      if (isDisplayFormBootstrapRequest(req)) {
+        const displayUrl = buildKioskDisplayUrl(kiosk.kioskCode);
+        if (!isAllowedDisplayRedirectUrl(displayUrl)) {
+          throw new AuthenticationError();
+        }
+        res.redirect(302, displayUrl);
+        return;
+      }
+
+      ok(res, { ok: true });
+    } catch (e) {
+      next(e);
+    }
+  }
+);
+
+kiosksRoutes.get(
+  "/kiosks/:kioskCode/display-state",
+  requireKioskDisplayAuth,
+  async (req, res, next) => {
+    try {
+      const kiosk = req.kioskDisplay!;
+      if (kiosk.kioskCode !== paramId(req.params.kioskCode)) {
+        throw new AuthenticationError();
+      }
+      const state = await getKioskDisplayState(kiosk);
+      ok(res, state);
+    } catch (e) {
+      next(e);
+    }
+  }
+);
 
 kiosksRoutes.get("/kiosks/:token/status", async (req, res, next) => {
   try {
@@ -60,12 +116,9 @@ kiosksRoutes.post("/kiosks/:token/session", requireAuth, async (req, res, next) 
       .set({ lastSeenAt: new Date() })
       .where(eq(kiosks.id, kiosk.id));
 
-    const releasedJobIds = await releaseReadyJobsToKiosk(req.auth!.userId, kiosk.id);
-
     ok(res, {
       kiosk_code: kiosk.kioskCode,
       expires_at: expires,
-      released_job_ids: releasedJobIds,
     });
   } catch (e) {
     next(e);

@@ -355,7 +355,7 @@ export function HowItWorksGrid() {
               cardRefs.current[index] = element;
             }}
             className={cn(
-              "relative rounded-2xl border bg-card/55 p-6 shadow-sm backdrop-blur-md transition-[box-shadow,border-color,background-color] duration-500",
+              "relative rounded-2xl  hover:ring-2 hover:ring-primary border bg-card/55 p-6 shadow-sm backdrop-blur-md transition-[box-shadow,border-color,background-color] duration-500",
               activeCardIndex === index &&
                 "border-primary/25 bg-primary/5 shadow-[0_0_24px_-4px] shadow-primary/20"
             )}

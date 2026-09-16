@@ -1,5 +1,4 @@
-import type { Server } from "http";
-import { WebSocketServer, type WebSocket } from "ws";
+import type { WebSocket } from "ws";
 import { authenticateKioskAgent } from "../services/kiosk-agent-auth.service";
 import {
   onAgentConnected,
@@ -18,25 +17,10 @@ import { clearInFlightKiosk } from "../services/kiosk-dispatch.service";
 
 const WS_PATH = "/ws/kiosk";
 
-export function attachKioskAgentWebSocket(server: Server) {
-  const wss = new WebSocketServer({ noServer: true });
-
-  server.on("upgrade", (req, socket, head) => {
-    const url = new URL(req.url ?? "/", `http://${req.headers.host ?? "localhost"}`);
-    if (url.pathname !== WS_PATH) {
-      socket.destroy();
-      return;
-    }
-
-    wss.handleUpgrade(req, socket, head, (ws) => {
-      void handleConnection(ws, req);
-    });
-  });
-
-  return wss;
-}
-
-async function handleConnection(ws: WebSocket, req: { headers: Record<string, string | string[] | undefined> }) {
+export async function handleKioskAgentConnection(
+  ws: WebSocket,
+  req: { headers: Record<string, string | string[] | undefined> }
+) {
   const authRaw = req.headers.authorization ?? req.headers.Authorization;
   const authHeader = Array.isArray(authRaw) ? authRaw[0] : authRaw;
   const parsed = parseAgentAuthHeader(authHeader);
@@ -61,8 +45,13 @@ async function handleConnection(ws: WebSocket, req: { headers: Record<string, st
   await registry.touchKioskLastSeen(kiosk.id);
   await onAgentConnected(kiosk.id);
 
+  let messageChain: Promise<void> = Promise.resolve();
   ws.on("message", (data) => {
-    void handleMessage(kiosk.id, data.toString());
+    messageChain = messageChain
+      .then(() => handleMessage(kiosk.id, data.toString()))
+      .catch((err) => {
+        wsLogger.warn({ kioskId: kiosk.id, err }, "ws message handler error");
+      });
   });
 
   ws.on("close", () => {

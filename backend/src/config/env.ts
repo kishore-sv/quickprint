@@ -29,7 +29,11 @@ const envSchema = z.object({
   KIOSK_AGENT_TOKEN_PEPPER: z.string().optional(),
   JOB_STUCK_TIMEOUT_MINUTES: z.coerce.number().default(30),
   KIOSK_HEARTBEAT_TIMEOUT_SECONDS: z.coerce.number().default(90),
+  KIOSK_DISPLAY_SESSION_TTL_DAYS: z.coerce.number().default(90),
 });
+
+/** Local Pi bootstrap HTTP server origin (fixed port; not configurable). */
+export const KIOSK_DISPLAY_BOOTSTRAP_ORIGIN = "http://127.0.0.1:18765";
 
 export type Env = z.infer<typeof envSchema>;
 
@@ -89,4 +93,14 @@ export const env = loadEnv();
 
 export function corsOrigins(): string[] {
   return env.CORS_ORIGINS.split(",").map((s) => s.trim()).filter(Boolean);
+}
+
+export function allowedCorsOrigins(): string[] {
+  const origins = new Set([env.FRONTEND_URL, ...corsOrigins(), KIOSK_DISPLAY_BOOTSTRAP_ORIGIN]);
+  return [...origins];
+}
+
+export function isAllowedCorsOrigin(origin: string | undefined): boolean {
+  if (!origin) return true;
+  return allowedCorsOrigins().includes(origin);
 }
