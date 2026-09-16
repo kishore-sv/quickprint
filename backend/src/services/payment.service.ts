@@ -6,9 +6,6 @@ import { db } from "../db";
 import { payments, printJobEvents, printJobs } from "../db/schema";
 import { PrintJobEventType } from "../types/enums";
 import { NotFoundError, PaymentError } from "../utils/errors";
-import { bindJobToUserKiosk } from "./kiosk-bind.service";
-import { enqueueDispatchForKiosk } from "./kiosk-dispatch.service";
-
 export function getRazorpayClient() {
   return new Razorpay({
     key_id: env.RAZORPAY_KEY_ID,
@@ -118,16 +115,6 @@ export async function markPaymentSuccess(
     });
 
     return job!;
-  }).then(async (job) => {
-    try {
-      const bound = await bindJobToUserKiosk(job.id, job.userId);
-      if (bound.kioskId) {
-        void enqueueDispatchForKiosk(bound.kioskId);
-      }
-    } catch {
-      /* no kiosk session — legacy manual release flow */
-    }
-    return job;
   });
 }
 

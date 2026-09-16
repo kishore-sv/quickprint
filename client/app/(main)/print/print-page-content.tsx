@@ -671,7 +671,9 @@ export default function PrintPageContent() {
               ) : (
                 <>
                   {kioskContext && (
-                    <p className="text-muted-foreground text-sm">Printing at {kioskContext.name}</p>
+                    <p className="text-muted-foreground text-sm">
+                      After payment, confirm print at {kioskContext.name} on the Scan page.
+                    </p>
                   )}
                   <p className="text-muted-foreground">Status: {job.payment_status}</p>
                   <Button

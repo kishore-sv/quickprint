@@ -1,6 +1,6 @@
 import { randomUUID } from "crypto";
 import express, { Router } from "express";
-import { eq } from "drizzle-orm";
+import { and, eq, gt } from "drizzle-orm";
 import { db } from "../db";
 import { kioskSessions, kiosks } from "../db/schema";
 import { requireAuth } from "../middleware/auth.middleware";
@@ -103,6 +103,14 @@ kiosksRoutes.post("/kiosks/:token/session", requireAuth, async (req, res, next) 
 
     const expires = new Date();
     expires.setUTCHours(expires.getUTCHours() + 2);
+
+    const now = new Date();
+    await db
+      .update(kioskSessions)
+      .set({ expiresAt: now })
+      .where(
+        and(eq(kioskSessions.userId, req.auth!.userId), gt(kioskSessions.expiresAt, now))
+      );
 
     await db.insert(kioskSessions).values({
       id: randomUUID(),
