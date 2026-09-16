@@ -12,15 +12,16 @@ import { wsLogger } from "../utils/logger";
 import { getKioskDisplayRegistry } from "./kiosk-display.registry";
 
 type UpgradeRequest = {
-  headers: Record<string, string | string[] | undefined>;
+  cookieHeader?: string | string[];
   url?: string;
 };
 
 async function resolveKioskFromWsRequest(
   req: UpgradeRequest
 ): Promise<typeof kiosks.$inferSelect | null> {
-  const cookieHeader = req.headers.cookie ?? req.headers.Cookie;
-  const cookieRaw = Array.isArray(cookieHeader) ? cookieHeader[0] : cookieHeader;
+  const cookieRaw = Array.isArray(req.cookieHeader)
+    ? req.cookieHeader[0]
+    : req.cookieHeader;
   const cookies = parseCookieHeader(cookieRaw);
   const session = verifyDisplaySessionCookie(cookies[DISPLAY_SESSION_COOKIE]);
   if (!session) return null;

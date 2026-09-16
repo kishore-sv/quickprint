@@ -19,7 +19,10 @@ export function attachWebSockets(server: Server) {
     }
     if (url.pathname === DISPLAY_WS_PATH) {
       displayWss.handleUpgrade(req, socket, head, (ws) => {
-        void handleKioskDisplayConnection(ws, { ...req, url: req.url });
+        void handleKioskDisplayConnection(ws, {
+          cookieHeader: req.headers?.cookie ?? req.headers?.Cookie,
+          url: req.url,
+        });
       });
       return;
     }
