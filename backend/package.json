@@ -14,7 +14,7 @@
     "db:apply": "bun run src/scripts/apply-sql-migrations.ts",
     "db:ping": "bun run src/scripts/db-ping.ts",
     "db:check": "drizzle-kit check",
-    "auth:migrate": "bunx @better-auth/cli@1.7.4 migrate --yes --config ./src/auth/index.ts",
+    "auth:migrate": "bunx auth@1.7.4 migrate --yes --config ./src/auth/index.ts",
     "retention:cleanup": "bun run src/scripts/retention-cleanup.ts",
     "kiosk:seed": "bun run db:apply && bun run src/scripts/seed-kiosk-1.ts",
     "kiosk:qr": "bun run src/scripts/generate-kiosk-qr.ts"

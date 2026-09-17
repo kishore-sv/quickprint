@@ -37,7 +37,7 @@ cp .env.example .env
 bun run auth:migrate
 ```
 
-Uses `@better-auth/cli` (the `better-auth` package does not ship a CLI binary).
+Uses the `auth` CLI package (same major version as `better-auth`; not `@better-auth/cli`, which only exists up to 1.4.x).
 
 Auth routes: `{BETTER_AUTH_URL}/api/auth/*`
 

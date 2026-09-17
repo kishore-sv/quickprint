@@ -165,7 +165,7 @@ From `backend/`:
 
 | Script | Command | Purpose |
 |--------|---------|---------|
-| `auth:migrate` | `bunx @better-auth/cli@1.7.4 migrate --yes --config ./src/auth/index.ts` | Better Auth tables |
+| `auth:migrate` | `bunx auth@1.7.4 migrate --yes --config ./src/auth/index.ts` | Better Auth tables |
 | `db:apply` | `bun run src/scripts/apply-sql-migrations.ts` | Idempotent additive SQL (`0001_*.sql`–`0007_*.sql`; skips `0000_*` baseline) |
 | `db:migrate` | `drizzle-kit migrate` | Drizzle Kit migrations (journal currently empty — no generated migrations yet) |
 | `db:ping` | `bun run src/scripts/db-ping.ts` | Test connectivity |
