@@ -15,7 +15,7 @@ export type JobCancellabilityInput = {
 };
 
 const UNPAID_CANCELLABLE_STATUSES: PrintJobStatus[] = ["CREATED", "PAYMENT_PENDING", "QUEUED"];
-const PAID_CANCELLABLE_STATUSES: PrintJobStatus[] = ["QUEUED", "CLAIMED", "DOWNLOADING"];
+const PAID_CANCELLABLE_STATUSES: PrintJobStatus[] = ["PAID", "QUEUED", "CLAIMED", "DOWNLOADING"];
 const TERMINAL_STATUSES: PrintJobStatus[] = ["COMPLETED", "FAILED", "EXPIRED"];
 
 export function isJobCancellable(job: JobCancellabilityInput): {
@@ -36,7 +36,10 @@ export function isJobCancellable(job: JobCancellabilityInput): {
     if (display === "PRINTING" || job.status === "PRINTING") {
       return { cancellable: false, paid: true, alreadyCancelled: false };
     }
-    if (job.status === "QUEUED" && job.dispatchedAt != null) {
+    if (
+      (job.status === "QUEUED" || job.status === "PAID") &&
+      job.dispatchedAt != null
+    ) {
       return { cancellable: false, paid: true, alreadyCancelled: false };
     }
     if (

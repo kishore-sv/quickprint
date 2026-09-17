@@ -58,7 +58,7 @@ function canDispatchClaim(job: JobRow, kioskId: string, jobId: string): boolean 
 }
 
 function canCancelPaid(job: JobRow): boolean {
-  if (job.status === "QUEUED") {
+  if (job.status === "QUEUED" || job.status === "PAID") {
     return job.dispatchedAt == null;
   }
   return job.status === "CLAIMED" || job.status === "DOWNLOADING";

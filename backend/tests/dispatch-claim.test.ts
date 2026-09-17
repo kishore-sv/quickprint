@@ -78,7 +78,7 @@ describe("paid cancellation mutex (logic)", () => {
     status: string;
     dispatchedAt: Date | null;
   }): boolean {
-    if (job.status === "QUEUED") {
+    if (job.status === "QUEUED" || job.status === "PAID") {
       return job.dispatchedAt == null;
     }
     return job.status === "CLAIMED" || job.status === "DOWNLOADING";
@@ -86,6 +86,10 @@ describe("paid cancellation mutex (logic)", () => {
 
   test("QUEUED without dispatch is cancellable", () => {
     expect(canCancelPaid({ status: "QUEUED", dispatchedAt: null })).toBe(true);
+  });
+
+  test("PAID before kiosk scan is cancellable", () => {
+    expect(canCancelPaid({ status: "PAID", dispatchedAt: null })).toBe(true);
   });
 
   test("QUEUED with dispatch claim is not cancellable", () => {

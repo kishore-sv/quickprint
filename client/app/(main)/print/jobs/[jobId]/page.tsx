@@ -72,6 +72,7 @@ export default function PrintJobStatusPage() {
       setCancelOpen(false);
       router.push("/home");
     } catch (e) {
+      setCancelOpen(false);
       toast.add({
         title: e instanceof Error ? e.message : "Could not cancel job",
         type: "error",

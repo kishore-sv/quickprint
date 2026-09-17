@@ -45,6 +45,8 @@ export function PrintJobCard({ job, onRemove, onCancelPaid, removing }: PrintJob
     try {
       await onCancelPaid(job.id);
       setCancelOpen(false);
+    } catch {
+      setCancelOpen(false);
     } finally {
       setCancelling(false);
     }

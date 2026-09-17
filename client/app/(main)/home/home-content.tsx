@@ -96,7 +96,6 @@ export default function HomePageContent() {
         title: e instanceof Error ? e.message : "Could not cancel job",
         type: "error",
       });
-      throw e;
     } finally {
       setRemovingId(null);
     }

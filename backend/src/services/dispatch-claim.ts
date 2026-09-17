@@ -20,7 +20,10 @@ export function buildPaidCancellationWhere(jobId: string) {
   return and(
     eq(printJobs.id, jobId),
     or(
-      and(eq(printJobs.status, "QUEUED"), isNull(printJobs.dispatchedAt)),
+      and(
+        inArray(printJobs.status, ["PAID", "QUEUED"]),
+        isNull(printJobs.dispatchedAt)
+      ),
       inArray(printJobs.status, ["CLAIMED", "DOWNLOADING"])
     )
   );

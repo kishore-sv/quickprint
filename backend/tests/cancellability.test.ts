@@ -13,6 +13,16 @@ const base = {
 };
 
 describe("isJobCancellable", () => {
+  test("paid job before kiosk binding is cancellable", () => {
+    expect(
+      isJobCancellable({
+        ...base,
+        status: "PAID",
+        paymentStatus: "PAID",
+      }).cancellable
+    ).toBe(true);
+  });
+
   test("paid queued job is cancellable", () => {
     expect(
       isJobCancellable({
