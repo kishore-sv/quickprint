@@ -10,6 +10,7 @@ import {
   assertDocBuffer,
   assertDocxBuffer,
   assertPdfBufferHeader,
+  detectUploadKind,
 } from "../files/file-content.utils";
 import { ok } from "../utils/respond";
 import {
@@ -32,22 +33,6 @@ const upload = multer({
   limits: { fileSize: env.MAX_UPLOAD_BYTES },
 });
 
-function detectUploadKind(mimetype: string, filename: string) {
-  const lowerMime = mimetype.toLowerCase();
-  const lowerName = filename.toLowerCase();
-
-  if (lowerMime.includes("wordprocessingml") || lowerName.endsWith(".docx")) {
-    return "docx" as const;
-  }
-  if (lowerMime === "application/msword" || lowerName.endsWith(".doc")) {
-    return "doc" as const;
-  }
-  if (lowerMime.startsWith("image/") || /\.(jpe?g|png)$/.test(lowerName)) {
-    return "image" as const;
-  }
-  return "pdf" as const;
-}
-
 filesRoutes.post("/files", requireAuth, upload.single("file"), async (req, res, next) => {
   try {
     await ensureProfile(req.auth!.userId);
@@ -67,7 +52,8 @@ filesRoutes.post("/files", requireAuth, upload.single("file"), async (req, res, 
     let content = file.buffer;
     const mime = "application/pdf";
     const storageFilename = storagePdfFilename(originalFilename);
-    const kind = detectUploadKind(file.mimetype, submittedOriginalName);
+    // Classify from uploaded bytes/name only — original_filename is display metadata.
+    const kind = detectUploadKind(file.mimetype, file.originalname, content);
 
     if (kind === "docx") {
       assertDocxBuffer(content);

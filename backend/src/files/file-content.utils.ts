@@ -43,3 +43,26 @@ export function assertPdfBufferHeader(content: Buffer): void {
     throw new ValidationError("File is not a valid PDF document");
   }
 }
+
+export type UploadKind = "pdf" | "doc" | "docx" | "image";
+
+/** Classify upload from bytes and multipart file metadata (not display original_filename). */
+export function detectUploadKind(mimetype: string, filename: string, content: Buffer): UploadKind {
+  if (content.length >= 5 && content.subarray(0, 5).equals(Buffer.from("%PDF-"))) {
+    return "pdf";
+  }
+
+  const lowerMime = mimetype.toLowerCase();
+  const lowerName = filename.toLowerCase();
+
+  if (lowerMime.includes("wordprocessingml") || lowerName.endsWith(".docx")) {
+    return "docx";
+  }
+  if (lowerMime === "application/msword" || lowerName.endsWith(".doc")) {
+    return "doc";
+  }
+  if (lowerMime.startsWith("image/") || /\.(jpe?g|png)$/.test(lowerName)) {
+    return "image";
+  }
+  return "pdf";
+}

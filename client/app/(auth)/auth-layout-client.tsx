@@ -17,7 +17,7 @@ export function AuthLayoutClient({ children }: { children: React.ReactNode }) {
 
   if (isPending) {
     return (
-      <div className="flex min-h-dvh items-center justify-center">
+      <div className="flex min-h-0 flex-1 items-center justify-center">
         <Spinner className="size-8" />
       </div>
     );
@@ -27,5 +27,5 @@ export function AuthLayoutClient({ children }: { children: React.ReactNode }) {
     return null;
   }
 
-  return children;
+  return <div className="min-h-0 flex-1 overflow-y-auto">{children}</div>;
 }

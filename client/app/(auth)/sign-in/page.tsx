@@ -9,7 +9,7 @@ import { QuickPrintLogo } from "@/components/quickprint-logo";
 
 export default function SignInPage() {
   return (
-    <div className="flex min-h-svh flex-col items-center justify-center gap-6 bg-muted p-6 md:p-10">
+    <div className="flex min-h-full flex-col items-center justify-center gap-6 bg-muted p-6 py-8 md:p-10">
       <div className={`flex flex-col gap-6 ${authPageMaxWidthClass}`}>
         <Button
           variant="ghost"

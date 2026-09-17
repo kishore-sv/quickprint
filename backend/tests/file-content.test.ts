@@ -5,7 +5,9 @@ import {
   assertJpegBuffer,
   assertPdfBufferHeader,
   assertPngBuffer,
+  detectUploadKind,
 } from "../src/files/file-content.utils";
+import { minimalPdfBuffer } from "./helpers/minimal-pdf";
 import { ValidationError } from "../src/utils/errors";
 
 describe("file content validation", () => {
@@ -50,5 +52,23 @@ describe("file content validation", () => {
 
   test("rejects non-PDF header", () => {
     expect(() => assertPdfBufferHeader(Buffer.from("NOTPDF"))).toThrow(ValidationError);
+  });
+
+  test("detects client-converted PDF even when display name is png", () => {
+    const pdf = minimalPdfBuffer();
+    expect(detectUploadKind("application/pdf", "scanner.pdf", pdf)).toBe("pdf");
+  });
+
+  test("detects raw doc and docx uploads", () => {
+    const docx = Buffer.from("PK\x03\x04word/document.xml[Content_Types].xml");
+    const doc = Buffer.alloc(8);
+    doc.set([0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1, 0x1a, 0xe1]);
+    expect(detectUploadKind("application/vnd.openxmlformats-officedocument.wordprocessingml.document", "a.docx", docx)).toBe("docx");
+    expect(detectUploadKind("application/msword", "a.doc", doc)).toBe("doc");
+  });
+
+  test("detects raw image uploads", () => {
+    const png = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x00]);
+    expect(detectUploadKind("image/png", "photo.png", png)).toBe("image");
   });
 });
