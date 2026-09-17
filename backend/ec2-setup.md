@@ -619,13 +619,19 @@ Production schema changes should use migrations.
 
 # 15. Database Migration
 
-Make sure:
+Install the RDS CA bundle on EC2 (required for verified TLS):
 
-```env
-DATABASE_URL=postgresql://USERNAME:PASSWORD@RDS_ENDPOINT:5432/quickprint?sslmode=require
+```bash
+sudo mkdir -p /etc/ssl/rds
+sudo curl -fsSL https://truststore.pki.rds.amazonaws.com/global/global-bundle.pem \
+  -o /etc/ssl/rds/global-bundle.pem
 ```
 
-points to the production AWS RDS PostgreSQL database.
+Make sure `.env` points to production RDS (no `sslmode` in the URL):
+
+```env
+DATABASE_URL=postgresql://USERNAME:PASSWORD@RDS_ENDPOINT:5432/quickprint
+```
 
 Full Neon → RDS cutover guide: [`docs/rds-migration.md`](../docs/rds-migration.md)
 
