@@ -35,10 +35,3 @@ export function buildRdsPoolSsl(): ConnectionOptions | undefined {
   if (!caPath) return undefined;
   return readRdsCa(caPath);
 }
-
-/** Drizzle Kit / CLI: only when RDS_CA_CERT_PATH is set (safe for local Mac without CA file). */
-export function buildRdsSslFromExplicitPath(): ConnectionOptions | undefined {
-  const configured = process.env.RDS_CA_CERT_PATH?.trim();
-  if (!configured) return undefined;
-  return readRdsCa(configured);
-}

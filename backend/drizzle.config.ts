@@ -1,11 +1,8 @@
 import { defineConfig } from "drizzle-kit";
-import {
-  buildRdsSslFromExplicitPath,
-  stripSslQueryParams,
-} from "./src/db/pool-config";
+import { buildRdsPoolSsl, stripSslQueryParams } from "./src/db/pool-config";
 
 const databaseUrl = process.env.DATABASE_URL!;
-const ssl = buildRdsSslFromExplicitPath();
+const ssl = buildRdsPoolSsl();
 
 export default defineConfig({
   schema: ["./src/db/schema/index.ts", "./src/db/relations.ts"],
