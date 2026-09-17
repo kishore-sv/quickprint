@@ -922,6 +922,9 @@ server {
 
     server_name qpapi.mmkerp.shop;
 
+    # Must be >= backend MAX_UPLOAD_BYTES (default 50 MB)
+    client_max_body_size 55m;
+
     location / {
         proxy_pass http://127.0.0.1:8000;
 
@@ -936,11 +939,14 @@ server {
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection "upgrade";
 
-        proxy_read_timeout 60s;
-        proxy_send_timeout 60s;
+        proxy_read_timeout 120s;
+        proxy_send_timeout 120s;
+        client_max_body_size 55m;
     }
 }
 ```
+
+A copy of this template lives at `backend/deploy/nginx-qpapi.conf`.
 
 This configuration supports both normal HTTP API requests and WebSocket connections.
 
@@ -1908,6 +1914,27 @@ Common causes:
 * incorrect start script
 * incorrect port
 * incorrect working directory
+
+---
+
+## Problem: File upload returns `413 Request Entity Too Large`
+
+Nginx defaults to a 1 MB body limit. QuickPrint allows up to 50 MB (`MAX_UPLOAD_BYTES`).
+
+Add to the API server block (and inside `location /`):
+
+```nginx
+client_max_body_size 55m;
+```
+
+Then reload:
+
+```bash
+sudo nginx -t
+sudo systemctl reload nginx
+```
+
+Template: `backend/deploy/nginx-qpapi.conf`
 
 ---
 

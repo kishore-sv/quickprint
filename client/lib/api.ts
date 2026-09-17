@@ -152,6 +152,15 @@ export async function uploadFile(
         }
         return;
       }
+      if (xhr.status === 413) {
+        reject(
+          new ApiError(
+            "File is too large. Maximum upload size is 50 MB.",
+            xhr.status
+          )
+        );
+        return;
+      }
       try {
         const err = JSON.parse(xhr.responseText) as { detail?: string };
         reject(new ApiError(err.detail ?? "Upload failed", xhr.status));

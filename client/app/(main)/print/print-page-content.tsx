@@ -3,7 +3,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { XIcon } from "lucide-react";
-import Script from "next/script";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { LinkButton } from "@/components/ui/link-button";
@@ -16,6 +15,8 @@ import {
   type PrintFileDraft,
 } from "@/components/print/print-setup-form";
 import { apiFetch, apiFetchPublic, uploadFile } from "@/lib/api";
+import { formatFileSize, MAX_UPLOAD_BYTES } from "@/lib/format-file-size";
+import { loadRazorpayScript } from "@/lib/load-razorpay";
 import { readKioskContext } from "@/lib/kiosk-context";
 import { PrintJobStatusChip } from "@/components/print/print-job-status-chip";
 import { imageFileToPdf } from "@/lib/image-to-pdf";
@@ -272,6 +273,14 @@ export default function PrintPageContent() {
   }, [jobIdFromUrl, loadJobFromUrl, assignJob, clearActiveJob, job?.id]);
 
   useEffect(() => {
+    if (step === "checkout") {
+      void loadRazorpayScript().catch(() => {
+        /* pay() surfaces load errors when user taps Pay */
+      });
+    }
+  }, [step]);
+
+  useEffect(() => {
     if (hydrating) return;
     if (skipNextPersist.current) {
       skipNextPersist.current = false;
@@ -330,6 +339,11 @@ export default function PrintPageContent() {
       try {
         const next: PrintFileDraft[] = [];
         for (const raw of files) {
+          if (raw.size > MAX_UPLOAD_BYTES) {
+            throw new Error(
+              `${raw.name} is too large (${formatFileSize(raw.size)}). Maximum size is 50 MB.`
+            );
+          }
           if (isWordDocument(raw)) {
             next.push({
               file: raw,
@@ -509,6 +523,8 @@ export default function PrintPageContent() {
         json: { print_job_id: job.id },
       });
 
+      await loadRazorpayScript();
+
       if (!window.Razorpay) {
         showError("Payment SDK not loaded");
         setPayBusy(false);
@@ -598,7 +614,6 @@ export default function PrintPageContent() {
 
   return (
     <>
-      <Script src="https://checkout.razorpay.com/v1/checkout.js" strategy="lazyOnload" />
       <div className="flex w-full min-w-0 flex-col gap-6 overflow-x-hidden">
         {step === "upload" && (
           <>
@@ -636,7 +651,7 @@ export default function PrintPageContent() {
                       )}
                       <p className="font-medium truncate pr-1">{getDraftDisplayName(d)}</p>
                       <p className="text-muted-foreground">
-                        {(getDraftDisplaySizeBytes(d) / 1024).toFixed(1)} KB
+                        {formatFileSize(getDraftDisplaySizeBytes(d))}
                         {d.pageCount > 0
                           ? ` · ${d.pageCount} pages`
                           : " · Word document — page count after upload"}
