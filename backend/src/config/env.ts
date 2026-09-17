@@ -19,7 +19,9 @@ const envSchema = z.object({
   RAZORPAY_KEY_ID: z.string().min(1),
   RAZORPAY_KEY_SECRET: z.string().min(1),
   RAZORPAY_WEBHOOK_SECRET: z.string().optional(),
-  MAX_UPLOAD_BYTES: z.coerce.number().default(20971520),
+  MAX_UPLOAD_BYTES: z.coerce.number().default(52428800),
+  LIBREOFFICE_BIN: z.string().default("libreoffice"),
+  DOCUMENT_CONVERSION_TIMEOUT_MS: z.coerce.number().default(120000),
   DEFAULT_BW_SHEET_PAISE: z.coerce.number().default(200),
   DEFAULT_COLOR_SHEET_PAISE: z.coerce.number().default(300),
   PRESIGNED_URL_EXPIRES: z.coerce.number().default(3600),
@@ -37,12 +39,18 @@ export const KIOSK_DISPLAY_BOOTSTRAP_ORIGIN = "http://127.0.0.1:18765";
 
 export type Env = z.infer<typeof envSchema>;
 
-/** Avoid pg-connection-string v2 deprecation warning for sslmode=require (Neon URLs). */
+/** Normalize DATABASE_URL for pg compatibility across PostgreSQL providers. */
 export function normalizeDatabaseUrl(url: string): string {
   try {
     const parsed = new URL(url);
+    parsed.searchParams.delete("channel_binding");
+
     const sslMode = parsed.searchParams.get("sslmode");
-    if (sslMode === "require" || sslMode === "prefer" || sslMode === "verify-ca") {
+    const isNeon = parsed.hostname.endsWith(".neon.tech");
+    if (
+      isNeon &&
+      (sslMode === "require" || sslMode === "prefer" || sslMode === "verify-ca")
+    ) {
       parsed.searchParams.set("sslmode", "verify-full");
     }
     return parsed.toString();

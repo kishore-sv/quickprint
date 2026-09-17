@@ -25,8 +25,7 @@ Complete production deployment guide for the QuickPrint backend.
                                                 │
                            ┌────────────────────┼───────────────────┐
                            │                    │                   │
-                        Neon DB          Supabase Storage       Razorpay
-                      PostgreSQL
+                     RDS PostgreSQL      Supabase Storage       Razorpay
 ````
 
 ### Production domains
@@ -58,7 +57,7 @@ Use:
 
 QuickPrint uses:
 
-* Neon PostgreSQL
+* AWS RDS PostgreSQL (see `docs/rds-migration.md`)
 * Supabase Storage
 * Razorpay
 * Better Auth
@@ -268,7 +267,8 @@ sudo apt install -y \
   build-essential \
   nginx \
   certbot \
-  python3-certbot-nginx
+  python3-certbot-nginx \
+  libreoffice
 ```
 
 Check:
@@ -278,7 +278,10 @@ git --version
 curl --version
 nginx -v
 certbot --version
+libreoffice --version
 ```
+
+LibreOffice is required on the **backend EC2 server** for DOC/DOCX → PDF conversion. It is **not** required on Raspberry Pi kiosks or in the browser client.
 
 ---
 
@@ -619,34 +622,27 @@ Production schema changes should use migrations.
 Make sure:
 
 ```env
-DATABASE_URL=...
+DATABASE_URL=postgresql://USERNAME:PASSWORD@RDS_ENDPOINT:5432/quickprint?sslmode=require
 ```
 
-points to the production Neon PostgreSQL database.
+points to the production AWS RDS PostgreSQL database.
 
-Then run the project's production migration command.
+Full Neon → RDS cutover guide: [`docs/rds-migration.md`](../docs/rds-migration.md)
 
-For example, if the project defines:
-
-```json
-"db:migrate": "drizzle-kit migrate"
-```
-
-run:
+From `backend/` on EC2 (with `.env` loaded):
 
 ```bash
-bun run db:migrate
+cd /opt/quickprint-backend
+bun run auth:migrate
+bun run db:apply
+bun run db:ping
 ```
 
-IMPORTANT:
+- `auth:migrate` — Better Auth tables
+- `db:apply` — idempotent additive SQL in `drizzle/*.sql`
+- `db:ping` — verify connectivity (does not print password or full URL)
 
-Do not use:
-
-```bash
-bun run db:push
-```
-
-on production unless the project's database deployment strategy explicitly requires it.
+`db:migrate` (Drizzle Kit) has no generated migrations in the journal yet; use `db:apply` for additive schema changes.
 
 After migration, verify the application database connection.
 
@@ -1628,7 +1624,8 @@ bun run build
 Run database migrations if this release contains migrations:
 
 ```bash
-bun run db:migrate
+bun run auth:migrate
+bun run db:apply
 ```
 
 Restart:
@@ -2080,7 +2077,7 @@ development secrets
 ```text
 https://qp.mmkerp.shop
 https://qpapi.mmkerp.shop
-production Neon
+production RDS PostgreSQL
 production Supabase
 production Razorpay
 production secrets
@@ -2175,7 +2172,7 @@ Production secrets must remain outside Git.
              ┌────────────────┼────────────────┐
              │                │                │
              ▼                ▼                ▼
-          Neon DB       Supabase Storage   Razorpay
+     RDS PostgreSQL   Supabase Storage   Razorpay
              │
              │
              ▼
@@ -2391,7 +2388,7 @@ Nginx
    ▼
 Bun + Express
    │
-   ├── Neon
+   ├── RDS PostgreSQL
    ├── Supabase
    ├── Razorpay
    ├── Redis (if configured)

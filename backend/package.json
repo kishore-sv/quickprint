@@ -12,6 +12,7 @@
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "db:apply": "bun run src/scripts/apply-sql-migrations.ts",
+    "db:ping": "bun run src/scripts/db-ping.ts",
     "db:check": "drizzle-kit check",
     "auth:migrate": "bunx better-auth migrate --yes --config ./src/auth/index.ts",
     "retention:cleanup": "bun run src/scripts/retention-cleanup.ts",

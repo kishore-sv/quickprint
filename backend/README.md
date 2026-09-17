@@ -3,7 +3,7 @@
 ## Requirements
 
 - Bun 1.1+
-- Neon PostgreSQL `DATABASE_URL`
+- PostgreSQL `DATABASE_URL` (local, AWS RDS, or any compatible host)
 - Supabase S3-compatible credentials
 - Razorpay keys
 
@@ -24,7 +24,9 @@ cp .env.example .env
 | `bun run typecheck` | TypeScript check |
 | `bun run test` | Unit tests |
 | `bun run db:generate` | Drizzle Kit generate SQL from schema |
-| `bun run db:migrate` | Apply Drizzle migrations |
+| `bun run db:migrate` | Apply Drizzle Kit migrations |
+| `bun run db:apply` | Apply additive SQL in `drizzle/*.sql` |
+| `bun run db:ping` | Test database connectivity |
 | `bun run db:check` | Schema drift check |
 | `bun run auth:migrate` | Better Auth tables (inspect DB first) |
 | `bun run retention:cleanup` | Delete expired saved files / job blobs |
@@ -51,7 +53,13 @@ Google OAuth redirect (example): `http://localhost:8000/api/auth/callback/google
 
 ## Application SQL (additive)
 
-If upgrading an existing Neon DB from Alembic:
+Apply idempotent migrations:
+
+```bash
+bun run db:apply
+```
+
+Or individually with `psql`:
 
 ```bash
 psql "$DATABASE_URL" -f drizzle/0001_add_public_token.sql
@@ -65,7 +73,9 @@ Better Auth tables are **not** managed by Drizzle — only application tables in
 
 ## Database driver
 
-Uses `pg` `Pool` with Neon pooled connection string. Suitable for long-running Express on Railway/Fly.
+Uses `drizzle-orm/node-postgres` + `pg.Pool` driven entirely by `DATABASE_URL`. Suitable for long-running Express on EC2.
+
+RDS migration guide: [`docs/rds-migration.md`](../docs/rds-migration.md)
 
 ## CORS and cookies
 

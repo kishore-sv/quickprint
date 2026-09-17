@@ -2,6 +2,17 @@ import { createHash } from "crypto";
 import pdf from "pdf-parse";
 import { ValidationError } from "../utils/errors";
 
+export function sanitizeOriginalFilename(name: string): string {
+  const base = name.split("/").pop()?.split("\\").pop() ?? "document";
+  const cleaned = base.replace(/[^\w.\- ]/g, "_").trim();
+  return cleaned.slice(0, 200) || "document";
+}
+
+export function storagePdfFilename(originalFilename: string): string {
+  const base = sanitizeOriginalFilename(originalFilename).replace(/\.[^.]+$/i, "") || "document";
+  return sanitizeFilename(`${base}.pdf`);
+}
+
 export function sanitizeFilename(name: string): string {
   const base = name.split("/").pop()?.split("\\").pop() ?? "document";
   const cleaned = base.replace(/[^\w.\- ]/g, "_").trim();
@@ -36,17 +47,20 @@ export const ALLOWED_UPLOAD_MIMES = new Set([
   "image/jpeg",
   "image/jpg",
   "image/png",
+  "application/msword",
   "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
 ]);
+
+const ALLOWED_EXTENSIONS = [".pdf", ".jpg", ".jpeg", ".png", ".doc", ".docx"];
 
 export function validateUploadMime(mime: string, filename: string): void {
   const lower = mime.toLowerCase();
   const ext = filename.toLowerCase();
   if (ALLOWED_UPLOAD_MIMES.has(lower)) return;
-  if (ext.endsWith(".pdf") || ext.endsWith(".jpg") || ext.endsWith(".jpeg") || ext.endsWith(".png") || ext.endsWith(".docx")) {
+  if (ALLOWED_EXTENSIONS.some((allowed) => ext.endsWith(allowed))) {
     return;
   }
   throw new ValidationError(
-    "Unsupported file type. Allowed: PDF, DOCX, JPG, JPEG, PNG"
+    "Unsupported file type. Allowed: PDF, DOC, DOCX, JPG, JPEG, PNG"
   );
 }

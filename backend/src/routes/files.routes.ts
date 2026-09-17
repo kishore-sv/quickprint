@@ -6,8 +6,18 @@ import { env } from "../config/env";
 import { db } from "../db";
 import { savedFiles } from "../db/schema";
 import { documentConversionService } from "../files/document-conversion.service";
+import {
+  assertDocBuffer,
+  assertDocxBuffer,
+  assertPdfBufferHeader,
+} from "../files/file-content.utils";
 import { ok } from "../utils/respond";
-import { sanitizeFilename, validatePdf, validateUploadMime } from "../files/pdf.utils";
+import {
+  sanitizeOriginalFilename,
+  storagePdfFilename,
+  validatePdf,
+  validateUploadMime,
+} from "../files/pdf.utils";
 import { requireAuth } from "../middleware/auth.middleware";
 import { ensureProfile } from "../services/profile.service";
 import { getStorageService } from "../storage/storage.service";
@@ -22,6 +32,22 @@ const upload = multer({
   limits: { fileSize: env.MAX_UPLOAD_BYTES },
 });
 
+function detectUploadKind(mimetype: string, filename: string) {
+  const lowerMime = mimetype.toLowerCase();
+  const lowerName = filename.toLowerCase();
+
+  if (lowerMime.includes("wordprocessingml") || lowerName.endsWith(".docx")) {
+    return "docx" as const;
+  }
+  if (lowerMime === "application/msword" || lowerName.endsWith(".doc")) {
+    return "doc" as const;
+  }
+  if (lowerMime.startsWith("image/") || /\.(jpe?g|png)$/.test(lowerName)) {
+    return "image" as const;
+  }
+  return "pdf" as const;
+}
+
 filesRoutes.post("/files", requireAuth, upload.single("file"), async (req, res, next) => {
   try {
     await ensureProfile(req.auth!.userId);
@@ -31,26 +57,33 @@ filesRoutes.post("/files", requireAuth, upload.single("file"), async (req, res, 
     validateUploadMime(file.mimetype, file.originalname);
 
     const saveForLater = req.query.save_for_later === "true";
+    const submittedOriginalName =
+      typeof req.body?.original_filename === "string" && req.body.original_filename.trim()
+        ? req.body.original_filename
+        : file.originalname;
+    const originalFilename = sanitizeOriginalFilename(submittedOriginalName);
+    const uploadedSizeBytes = file.buffer.length;
+
     let content = file.buffer;
-    let mime = "application/pdf";
-    let filename = sanitizeFilename(file.originalname);
+    const mime = "application/pdf";
+    const storageFilename = storagePdfFilename(originalFilename);
+    const kind = detectUploadKind(file.mimetype, submittedOriginalName);
 
-    const isDocx =
-      file.mimetype.includes("wordprocessingml") || file.originalname.toLowerCase().endsWith(".docx");
-    const isImage = file.mimetype.startsWith("image/");
-
-    if (isDocx) {
-      content = await documentConversionService.convertDocxToPdf(content);
-      filename = sanitizeFilename(filename.replace(/\.docx$/i, ".pdf"));
-    } else if (isImage) {
+    if (kind === "docx") {
+      assertDocxBuffer(content);
+      content = await documentConversionService.convertWordToPdf(content, "docx");
+    } else if (kind === "doc") {
+      assertDocBuffer(content);
+      content = await documentConversionService.convertWordToPdf(content, "doc");
+    } else if (kind === "image") {
       throw new ValidationError("Upload PDF for printing; convert images in the client before upload");
     } else {
-      mime = "application/pdf";
+      assertPdfBufferHeader(content);
     }
 
     const { pageCount, fileHash } = await validatePdf(content);
     const fileId = randomUUID();
-    const storageKey = `uploads/${req.auth!.userId}/${fileId}/${filename}`;
+    const storageKey = `uploads/${req.auth!.userId}/${fileId}/${storageFilename}`;
     const storage = getStorageService();
     await storage.upload(storageKey, content, mime);
 
@@ -66,8 +99,8 @@ filesRoutes.post("/files", requireAuth, upload.single("file"), async (req, res, 
         id: fileId,
         userId: req.auth!.userId,
         storageKey,
-        originalFilename: filename,
-        fileSizeBytes: content.length,
+        originalFilename,
+        fileSizeBytes: uploadedSizeBytes,
         fileHash,
         pageCount,
         retentionUntil,
