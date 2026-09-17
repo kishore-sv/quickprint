@@ -23,7 +23,14 @@ import { paramId } from "../utils/params";
 import { assertActiveKioskSession } from "../services/kiosk.service";
 import { applyJobTimeoutIfNeeded } from "../services/job-timeout.service";
 import { isKioskServiceOnline } from "../services/kiosk-status.service";
-import { serializePrintJob, serializePrintJobDetail } from "../utils/serializers";
+import { cancelPrintJob } from "../services/cancellation.service";
+import { getRefundForJob } from "../services/refund.service";
+import {
+  serializePrintJob,
+  serializePrintJobDetail,
+  serializePrintJobListItem,
+  serializeRefund,
+} from "../utils/serializers";
 import {
   printJobCreateSchema,
   printJobReleaseSchema,
@@ -84,7 +91,7 @@ printJobsRoutes.get("/print-jobs", requireAuth, async (req, res, next) => {
     const options = parseListJobsQuery(req.query as Record<string, unknown>);
     const result = await listUserJobs(req.auth!.userId, options);
     ok(res, {
-      items: result.items.map(serializePrintJob),
+      items: result.items.map(serializePrintJobListItem),
       page: result.page,
       limit: result.limit,
       has_more: result.has_more,
@@ -236,20 +243,11 @@ printJobsRoutes.post(
 
 printJobsRoutes.post("/print-jobs/:id/cancel", requireAuth, async (req, res, next) => {
   try {
-    const job = await getOwnedJob(paramId(req.params.id), req.auth!.userId);
-    if (job.paymentStatus === "PAID") {
-      throw new PrintJobError("Cannot cancel a paid job");
-    }
-    if (!["CREATED", "PAYMENT_PENDING", "QUEUED"].includes(job.status)) {
-      throw new PrintJobError("Job cannot be cancelled");
-    }
-    const [updated] = await db
-      .update(printJobs)
-      .set({ status: "CANCELLED" })
-      .where(eq(printJobs.id, job.id))
-      .returning();
-    await addEvent(job.id, PrintJobEventType.CANCELLED);
-    ok(res, serializePrintJob(updated!));
+    const result = await cancelPrintJob(req.auth!.userId, paramId(req.params.id));
+    ok(res, {
+      job: serializePrintJob(result.job, result.refund),
+      refund: result.refund ? serializeRefund(result.refund) : null,
+    });
   } catch (e) {
     next(e);
   }

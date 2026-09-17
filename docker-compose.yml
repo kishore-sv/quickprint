@@ -1,3 +1,6 @@
+# Local dev only. After `docker compose up -d`, from backend/:
+#   cp .env.example .env  (set DATABASE_URL + REDIS_URL — see .env.example)
+#   bun run db:setup:local
 services:
   postgres:
     image: postgres:17

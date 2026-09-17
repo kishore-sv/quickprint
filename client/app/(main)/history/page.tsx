@@ -14,7 +14,9 @@ import { LinkButton } from "@/components/ui/link-button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "@/components/ui/toast";
 import { apiFetch } from "@/lib/api";
+import { JobRefundStatusChip } from "@/components/print/refund-status-chip";
 import { PrintJobStatusChip } from "@/components/print/print-job-status-chip";
+import { mapPrintJobStatus } from "@/lib/map-print-job-status";
 import type { PrintJob, PrintJobListResponse } from "@/lib/types";
 import Link from "next/link";
 
@@ -76,9 +78,12 @@ function HistoryJobCard({ job }: { job: PrintJob }) {
   const amount = formatAmount(job.amount_paise);
   const showPrintAgain =
     job.saved_file_id && job.save_file && savedDays !== null && savedDays > 0;
+  const isCancelled = mapPrintJobStatus(job).status === "CANCELLED";
 
   return (
-    <article className="rounded-xl border bg-card p-4 shadow-sm">
+    <article
+      className={`rounded-xl border bg-card p-4 shadow-sm ${isCancelled ? "opacity-60" : ""}`}
+    >
       <div className="flex gap-3">
         <div
           className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary"
@@ -107,6 +112,7 @@ function HistoryJobCard({ job }: { job: PrintJob }) {
               job={job}
               className="rounded-full px-2.5 py-0.5 font-medium"
             />
+            <JobRefundStatusChip job={job} className="rounded-full px-2.5 py-0.5 font-medium" />
             {savedDays != null && job.save_file && (
               <span className="text-xs text-muted-foreground">
                 Saved {savedDays}d left

@@ -17,4 +17,8 @@ describe("print job state machine", () => {
   test("COMPLETED is terminal", () => {
     expect(canTransitionStatus("COMPLETED", "QUEUED")).toBe(false);
   });
+
+  test("DOWNLOADING to CANCELLED", () => {
+    expect(canTransitionStatus("DOWNLOADING", "CANCELLED")).toBe(true);
+  });
 });

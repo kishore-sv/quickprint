@@ -57,6 +57,13 @@ export function buildJobAssignedMessage(fields: {
   });
 }
 
+export function buildJobCancelMessage(fields: { job_id: string }): string {
+  return JSON.stringify({
+    type: PiInboundType.JOB_CANCEL,
+    job_id: fields.job_id,
+  });
+}
+
 export function buildPingMessage(): string {
   return JSON.stringify({ type: PiInboundType.PING });
 }

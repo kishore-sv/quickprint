@@ -23,6 +23,15 @@ export type PrintJobListResponse = {
   has_more: boolean;
 };
 
+export type RefundStatus = "PROCESSING" | "REFUNDED" | "FAILED";
+
+export type RefundSummary = {
+  id: string;
+  status: RefundStatus;
+  amount_paise: number;
+  currency: string;
+};
+
 export type DisplayStatus =
   | "AWAITING_PAYMENT"
   | "QUEUED"
@@ -102,6 +111,25 @@ export type PrintJob = {
   display_label?: string;
   display_message?: string | null;
   is_terminal?: boolean;
+  refund?: RefundSummary | null;
+};
+
+export type CancelPrintJobResponse = {
+  job: PrintJob;
+  refund: {
+    id: string;
+    print_job_id: string;
+    payment_id: string;
+    razorpay_payment_id: string;
+    razorpay_refund_id: string | null;
+    amount_paise: number;
+    currency: string;
+    status: RefundStatus;
+    failure_reason: string | null;
+    created_at: string;
+    updated_at: string;
+    processed_at: string | null;
+  } | null;
 };
 
 export type Kiosk = {

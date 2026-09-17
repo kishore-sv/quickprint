@@ -163,7 +163,7 @@ export default function PrintPageContent() {
     async (jobId: string, preserveStep?: Step) => {
       const j = await apiFetch<PrintJob>(`/print-jobs/${jobId}`);
       if (j.payment_status === "PAID") {
-        showSuccess("This job is paid — open Scan kiosk to print");
+        showSuccess("This job is paid - open Scan kiosk to print");
         assignJob(j);
         setStep("checkout");
         return;

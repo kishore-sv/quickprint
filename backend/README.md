@@ -15,6 +15,19 @@ cp .env.example .env
 # edit .env
 ```
 
+### Local database (Docker)
+
+From the repo root:
+
+```bash
+docker compose up -d
+cd backend
+cp .env.example .env   # includes docker Postgres + Redis URLs
+bun run db:setup:local # Better Auth tables + application SQL
+```
+
+Use `bun run auth:migrate:local` (not `auth:migrate`) on macOS — the default CLI runs under Node and can fail with `ERR_REQUIRE_ESM`. Production EC2 keeps using `auth:migrate`.
+
 ## Commands
 
 | Script | Description |
@@ -28,8 +41,23 @@ cp .env.example .env
 | `bun run db:apply` | Apply additive SQL in `drizzle/*.sql` |
 | `bun run db:ping` | Test database connectivity |
 | `bun run db:check` | Schema drift check |
-| `bun run auth:migrate` | Better Auth tables (inspect DB first) |
+| `bun run auth:migrate` | Better Auth tables (production / Linux) |
+| `bun run auth:migrate:local` | Better Auth tables (local macOS / Bun runtime) |
+| `bun run db:setup:local` | Auth tables + `db:apply` for Docker Postgres |
 | `bun run retention:cleanup` | Delete expired saved files / job blobs |
+| `bun run worker:refund` | BullMQ refund worker (separate process) |
+
+## Refunds (local)
+
+Redis must be running (`docker compose up -d` from repo root). Apply migrations, then:
+
+```bash
+bun run db:apply
+bun run dev              # API
+bun run worker:refund    # separate terminal
+```
+
+Set `REDIS_URL=redis://127.0.0.1:6379` in `.env`.
 
 ## Better Auth migration
 

@@ -50,3 +50,9 @@ export class PrintJobError extends AppError {
     super(message, 400, code);
   }
 }
+
+export class ConflictError extends AppError {
+  constructor(message: string, code = "CONFLICT") {
+    super(message, 409, code);
+  }
+}

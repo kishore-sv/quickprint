@@ -118,6 +118,28 @@ export async function markPaymentSuccess(
   });
 }
 
+export async function refundRazorpayPayment(
+  razorpayPaymentId: string,
+  amountPaise: number,
+  idempotencyKey: string
+) {
+  const client = getRazorpayClient();
+  return client.payments.refund(razorpayPaymentId, {
+    amount: amountPaise,
+    notes: { idempotency_key: idempotencyKey },
+  });
+}
+
+export async function findSuccessfulPaymentForJob(printJobId: string) {
+  const [payment] = await db
+    .select()
+    .from(payments)
+    .where(and(eq(payments.printJobId, printJobId), eq(payments.status, "SUCCESS")))
+    .orderBy(desc(payments.createdAt))
+    .limit(1);
+  return payment ?? null;
+}
+
 export async function findOpenPaymentForJob(printJobId: string) {
   const [payment] = await db
     .select()

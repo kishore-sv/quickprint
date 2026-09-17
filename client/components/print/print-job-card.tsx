@@ -1,10 +1,12 @@
 "use client";
 
+import { useState } from "react";
 import { FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { LinkButton } from "@/components/ui/link-button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { CancelPrintJobDialog } from "@/components/print/cancel-print-job-dialog";
 import {
   formatJobAmount,
   formatJobSummary,
@@ -12,7 +14,10 @@ import {
   jobInQueue,
   jobNeedsPayment,
 } from "@/lib/print-job-display";
-import { mapPrintJobStatus } from "@/lib/map-print-job-status";
+import {
+  isCancellablePaidJob,
+  mapPrintJobStatus,
+} from "@/lib/map-print-job-status";
 import { PrintJobStatusChip } from "@/components/print/print-job-status-chip";
 import type { PrintJob } from "@/lib/types";
 import { toast } from "@/components/ui/toast";
@@ -20,15 +25,30 @@ import { toast } from "@/components/ui/toast";
 type PrintJobCardProps = {
   job: PrintJob;
   onRemove?: (jobId: string) => void;
+  onCancelPaid?: (jobId: string) => Promise<void>;
   removing?: boolean;
 };
 
-export function PrintJobCard({ job, onRemove, removing }: PrintJobCardProps) {
+export function PrintJobCard({ job, onRemove, onCancelPaid, removing }: PrintJobCardProps) {
+  const [cancelOpen, setCancelOpen] = useState(false);
+  const [cancelling, setCancelling] = useState(false);
   const needsPayment = jobNeedsPayment(job);
   const mapped = mapPrintJobStatus(job);
   const inQueue = jobInQueue(job);
   const atKiosk = jobAtKiosk(job);
+  const cancellablePaid = isCancellablePaidJob(job);
   const amount = formatJobAmount(job);
+
+  const confirmPaidCancel = async () => {
+    if (!onCancelPaid) return;
+    setCancelling(true);
+    try {
+      await onCancelPaid(job.id);
+      setCancelOpen(false);
+    } finally {
+      setCancelling(false);
+    }
+  };
 
   return (
     <Card className="py-0 shadow-none">
@@ -75,26 +95,34 @@ export function PrintJobCard({ job, onRemove, removing }: PrintJobCardProps) {
               View status
             </LinkButton>
           )}
-          {inQueue && (
+          {(inQueue || cancellablePaid) && (
             <>
-              <LinkButton href="/scan" size="sm" className="min-w-[5.5rem]">
-                Scan kiosk
-              </LinkButton>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                className="text-destructive hover:bg-destructive/5 hover:text-destructive"
-                onClick={() =>
-                  toast.add({
-                    title: "Paid jobs can't be removed here",
-                    description: "Print at a kiosk or check History after printing.",
-                    type: "info",
-                  })
-                }
-              >
-                Cancel
-              </Button>
+              {inQueue && (
+                <LinkButton href="/scan" size="sm" className="min-w-[5.5rem]">
+                  Scan kiosk
+                </LinkButton>
+              )}
+              {cancellablePaid && onCancelPaid && (
+                <>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="text-destructive hover:bg-destructive/5 hover:text-destructive"
+                    disabled={removing || cancelling}
+                    onClick={() => setCancelOpen(true)}
+                  >
+                    Cancel
+                  </Button>
+                  <CancelPrintJobDialog
+                    job={job}
+                    open={cancelOpen}
+                    onOpenChange={setCancelOpen}
+                    onConfirm={() => void confirmPaidCancel()}
+                    confirming={cancelling}
+                  />
+                </>
+              )}
             </>
           )}
         </div>

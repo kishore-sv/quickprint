@@ -13,7 +13,8 @@ import {
   PrintJobCard,
   PrintJobCardSkeleton,
 } from "@/components/print/print-job-card";
-import { apiFetch, fetchPrintJobs } from "@/lib/api";
+import { fetchPrintJobs } from "@/lib/api";
+import { cancelPrintJob } from "@/lib/cancel-print-job";
 import { clearPrintFlowSession, readPrintFlowSession } from "@/lib/print-session";
 import type { PrintJob } from "@/lib/types";
 import { toast } from "@/components/ui/toast";
@@ -64,7 +65,7 @@ export default function HomePageContent() {
   const removeJob = async (jobId: string) => {
     setRemovingId(jobId);
     try {
-      await apiFetch(`/print-jobs/${jobId}/cancel`, { method: "POST" });
+      await cancelPrintJob(jobId);
       toast.add({ title: "Job removed", type: "success" });
       await loadJobs();
     } catch (e) {
@@ -72,6 +73,30 @@ export default function HomePageContent() {
         title: e instanceof Error ? e.message : "Could not remove job",
         type: "error",
       });
+    } finally {
+      setRemovingId(null);
+    }
+  };
+
+  const cancelPaidJob = async (jobId: string) => {
+    setRemovingId(jobId);
+    try {
+      const result = await cancelPrintJob(jobId);
+      toast.add({
+        title: "Print job cancelled",
+        description:
+          result.refund?.status === "PROCESSING"
+            ? "Your refund is being processed."
+            : undefined,
+        type: "success",
+      });
+      await loadJobs();
+    } catch (e) {
+      toast.add({
+        title: e instanceof Error ? e.message : "Could not cancel job",
+        type: "error",
+      });
+      throw e;
     } finally {
       setRemovingId(null);
     }
@@ -143,6 +168,7 @@ export default function HomePageContent() {
                   job={job}
                   removing={removingId === job.id}
                   onRemove={(id) => void removeJob(id)}
+                  onCancelPaid={(id) => cancelPaidJob(id)}
                 />
               ))}
             </div>

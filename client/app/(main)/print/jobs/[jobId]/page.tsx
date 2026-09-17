@@ -1,21 +1,29 @@
 "use client";
 
-import { useEffect, useRef } from "react";
-import { useParams } from "next/navigation";
+import { useEffect, useRef, useState } from "react";
+import { useParams, useRouter } from "next/navigation";
 import { CheckCircle2, Circle, CircleCheckBig, Loader } from "lucide-react";
+import { CancelPrintJobDialog } from "@/components/print/cancel-print-job-dialog";
 import { PrintJobStatusChip } from "@/components/print/print-job-status-chip";
+import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
+import { cancelPrintJob } from "@/lib/cancel-print-job";
 import { pageMaxWidthClass } from "@/lib/layout";
 import { playPrintCompleteSound, printPickupMessage } from "@/lib/print-complete-feedback";
+import { isCancellablePaidJob } from "@/lib/map-print-job-status";
 import { mapPrintJobStatus, STEP_LABELS } from "@/lib/print-job-status";
 import { usePrintJobPoll } from "@/lib/use-print-job-poll";
 import { cn } from "@/lib/utils";
+import { toast } from "@/components/ui/toast";
 
 export default function PrintJobStatusPage() {
   const params = useParams();
+  const router = useRouter();
   const jobId = typeof params.jobId === "string" ? params.jobId : "";
   const { job, error, loading } = usePrintJobPoll(jobId);
   const completionSoundPlayed = useRef(false);
+  const [cancelOpen, setCancelOpen] = useState(false);
+  const [cancelling, setCancelling] = useState(false);
 
   const status = job ? mapPrintJobStatus(job).status : null;
 
@@ -54,6 +62,24 @@ export default function PrintJobStatusPage() {
   const isSuccess = status === "COMPLETED";
   const isFailed = status === "FAILED";
   const pickupMessage = isSuccess ? printPickupMessage(job) : message;
+  const canCancel = isCancellablePaidJob(job);
+
+  const confirmCancel = async () => {
+    setCancelling(true);
+    try {
+      await cancelPrintJob(job.id);
+      toast.add({ title: "Print job cancelled", type: "success" });
+      setCancelOpen(false);
+      router.push("/home");
+    } catch (e) {
+      toast.add({
+        title: e instanceof Error ? e.message : "Could not cancel job",
+        type: "error",
+      });
+    } finally {
+      setCancelling(false);
+    }
+  };
 
   return (
     <div className={cn("flex flex-col gap-4 py-2", pageMaxWidthClass)}>
@@ -154,6 +180,27 @@ export default function PrintJobStatusPage() {
 
       {!terminal && (
         <p className="text-xs text-muted-foreground">Updating automatically…</p>
+      )}
+
+      {canCancel && (
+        <>
+          <Button
+            type="button"
+            variant="outline"
+            className="w-full text-destructive hover:bg-destructive/5 hover:text-destructive"
+            disabled={cancelling}
+            onClick={() => setCancelOpen(true)}
+          >
+            Cancel print job
+          </Button>
+          <CancelPrintJobDialog
+            job={job}
+            open={cancelOpen}
+            onOpenChange={setCancelOpen}
+            onConfirm={() => void confirmCancel()}
+            confirming={cancelling}
+          />
+        </>
       )}
     </div>
   );

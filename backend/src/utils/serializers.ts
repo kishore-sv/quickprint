@@ -1,5 +1,5 @@
 import type { InferSelectModel } from "drizzle-orm";
-import type { kiosks, printJobs, savedFiles } from "../db/schema";
+import type { kiosks, printJobs, refunds, savedFiles } from "../db/schema";
 import type { PrintJobListRow } from "../services/print-job.service";
 import {
   buildJobSteps,
@@ -80,8 +80,57 @@ function basePrintJobFields(job: PrintJobSerializable) {
   };
 }
 
-export function serializePrintJob(job: PrintJobSerializable) {
-  return basePrintJobFields(job);
+export function serializeRefund(refund: InferSelectModel<typeof refunds>) {
+  return {
+    id: refund.id,
+    print_job_id: refund.printJobId,
+    payment_id: refund.paymentId,
+    razorpay_payment_id: refund.razorpayPaymentId,
+    razorpay_refund_id: refund.razorpayRefundId,
+    amount_paise: refund.amountPaise,
+    currency: refund.currency,
+    status: refund.status,
+    failure_reason: refund.failureReason,
+    created_at: refund.createdAt,
+    updated_at: refund.updatedAt,
+    processed_at: refund.processedAt,
+  };
+}
+
+type RefundListSummary = {
+  id: string;
+  status: string;
+  amountPaise: number;
+  currency: string;
+};
+
+type RefundSummary = InferSelectModel<typeof refunds> | RefundListSummary;
+
+function refundSummaryFields(refund: RefundSummary) {
+  return {
+    id: refund.id,
+    status: refund.status,
+    amount_paise: refund.amountPaise,
+    currency: refund.currency,
+  };
+}
+
+export function serializePrintJob(job: PrintJobSerializable, refund?: RefundSummary | null) {
+  const embeddedRefund =
+    refund ??
+    ("refund" in job && job.status === "CANCELLED" ? (job as PrintJobListRow).refund : null);
+  const base = basePrintJobFields(job);
+  if (job.status !== "CANCELLED" || !embeddedRefund) {
+    return base;
+  }
+  return {
+    ...base,
+    refund: refundSummaryFields(embeddedRefund),
+  };
+}
+
+export function serializePrintJobListItem(job: PrintJobListRow) {
+  return serializePrintJob(job, job.refund ?? null);
 }
 
 export function serializePrintJobDetail(

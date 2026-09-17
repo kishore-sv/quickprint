@@ -804,10 +804,47 @@ Start:
 sudo systemctl start quickprint-backend
 ```
 
+## Refund worker + Redis (production)
+
+Install Redis locally on EC2 (do **not** expose port 6379 publicly):
+
+```bash
+sudo apt update
+sudo apt install -y redis-server
+sudo systemctl enable --now redis-server
+```
+
+Add to `/opt/quickprint/backend/.env`:
+
+```bash
+REDIS_URL=redis://127.0.0.1:6379
+```
+
+Copy the refund worker unit from the repo and enable it:
+
+```bash
+sudo cp /opt/quickprint/backend/deploy/quickprint-refund-worker.service \
+  /etc/systemd/system/quickprint-refund-worker.service
+sudo systemctl daemon-reload
+sudo systemctl enable --now quickprint-refund-worker
+sudo journalctl -u quickprint-refund-worker -f
+```
+
+After deploys that change refund logic:
+
+```bash
+cd /opt/quickprint/backend
+git pull --ff-only
+bun install --frozen-lockfile
+bun run db:apply
+sudo systemctl restart quickprint-refund-worker
+```
+
 Check:
 
 ```bash
 sudo systemctl status quickprint-backend
+sudo systemctl status quickprint-refund-worker
 ```
 
 Expected:

@@ -17,6 +17,7 @@ export type PrintJobStatus =
   | "EXPIRED";
 export type PaymentStatus = "UNPAID" | "PENDING" | "PAID" | "FAILED" | "REFUNDED";
 export type PaymentRecordStatus = "CREATED" | "SUCCESS" | "FAILED";
+export type RefundStatus = "PROCESSING" | "REFUNDED" | "FAILED";
 export type KioskStatus = "ACTIVE" | "INACTIVE" | "MAINTENANCE";
 
 export const PrintJobEventType = {

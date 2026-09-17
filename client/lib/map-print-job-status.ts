@@ -59,3 +59,21 @@ export function isActivePrintJobAtKiosk(job: JobWithDisplay): boolean {
 export function printJobNeedsPayment(job: JobWithDisplay): boolean {
   return mapPrintJobStatus(job).status === "AWAITING_PAYMENT";
 }
+
+const PAID_CANCELLABLE_DISPLAY: DisplayStatus[] = [
+  "QUEUED",
+  "RECEIVED",
+  "DOWNLOADING",
+  "READY",
+];
+
+export function isCancellablePaidJob(job: JobWithDisplay): boolean {
+  if (job.status === "CANCELLED") return false;
+  if (job.payment_status !== "PAID") return false;
+  const display = mapPrintJobStatus(job).status;
+  return PAID_CANCELLABLE_DISPLAY.includes(display);
+}
+
+export function isCancellableUnpaidJob(job: JobWithDisplay): boolean {
+  return mapPrintJobStatus(job).status === "AWAITING_PAYMENT";
+}

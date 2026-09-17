@@ -1,0 +1,16 @@
+[Unit]
+Description=QuickPrint BullMQ refund worker
+After=network.target redis-server.service
+Wants=redis-server.service
+
+[Service]
+Type=simple
+User=ubuntu
+WorkingDirectory=/opt/quickprint/backend
+EnvironmentFile=/opt/quickprint/backend/.env
+ExecStart=/home/ubuntu/.bun/bin/bun run worker:refund
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

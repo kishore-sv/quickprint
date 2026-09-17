@@ -1,11 +1,15 @@
-import { and, asc, eq, isNotNull, isNull, or } from "drizzle-orm";
+import { and, asc, eq, isNotNull, isNull, ne, or } from "drizzle-orm";
 import { env } from "../config/env";
 import { db } from "../db";
 import { printJobs } from "../db/schema";
 import { PrintJobEventType } from "../types/enums";
 import { getStorageService } from "../storage/storage.service";
 import { wsLogger } from "../utils/logger";
-import { buildJobAssignedMessage, pageRangeForPiAgent } from "../ws/kiosk-agent.protocol";
+import {
+  buildJobAssignedMessage,
+  buildJobCancelMessage,
+  pageRangeForPiAgent,
+} from "../ws/kiosk-agent.protocol";
 import { getKioskAgentRegistry } from "../ws/kiosk-agent.registry";
 import { addEvent } from "./print-job.service";
 
@@ -34,12 +38,24 @@ export async function findNextDispatchableJob(kioskId: string) {
         eq(printJobs.kioskId, kioskId),
         eq(printJobs.paymentStatus, "PAID"),
         eq(printJobs.status, "QUEUED"),
+        ne(printJobs.status, "CANCELLED"),
         isNull(printJobs.dispatchedAt)
       )
     )
     .orderBy(asc(printJobs.createdAt))
     .limit(1);
   return rows[0] ?? null;
+}
+
+function dispatchableJobCondition(kioskId: string, jobId: string) {
+  return and(
+    eq(printJobs.id, jobId),
+    eq(printJobs.kioskId, kioskId),
+    eq(printJobs.paymentStatus, "PAID"),
+    eq(printJobs.status, "QUEUED"),
+    ne(printJobs.status, "CANCELLED"),
+    isNull(printJobs.dispatchedAt)
+  );
 }
 
 export async function dispatchJobToKiosk(kioskId: string, jobId: string): Promise<boolean> {
@@ -53,19 +69,12 @@ export async function dispatchJobToKiosk(kioskId: string, jobId: string): Promis
     return false;
   }
 
+  const now = new Date();
   const [job] = await db
-    .select()
-    .from(printJobs)
-    .where(
-      and(
-        eq(printJobs.id, jobId),
-        eq(printJobs.kioskId, kioskId),
-        eq(printJobs.paymentStatus, "PAID"),
-        eq(printJobs.status, "QUEUED"),
-        isNull(printJobs.dispatchedAt)
-      )
-    )
-    .limit(1);
+    .update(printJobs)
+    .set({ dispatchedAt: now })
+    .where(dispatchableJobCondition(kioskId, jobId))
+    .returning();
   if (!job) return false;
 
   const storage = getStorageService();
@@ -81,18 +90,22 @@ export async function dispatchJobToKiosk(kioskId: string, jobId: string): Promis
   socket.send(payload);
   inFlightByKiosk.set(kioskId, job.id);
 
-  const now = new Date();
-  await db
-    .update(printJobs)
-    .set({
-      dispatchedAt: now,
-    })
-    .where(eq(printJobs.id, job.id));
-
   await addEvent(job.id, PrintJobEventType.PRINT_REQUESTED, { kiosk_id: kioskId });
 
   wsLogger.info({ jobId: job.id, kioskId }, "ws dispatch job.assigned");
   return true;
+}
+
+export function cancelJobOnKiosk(kioskId: string, jobId: string): void {
+  const registry = getKioskAgentRegistry();
+  const socket = registry.getConnection(kioskId);
+  clearInFlightForJob(kioskId, jobId);
+  if (!socket || socket.readyState !== 1) {
+    wsLogger.info({ jobId, kioskId }, "ws job.cancel skipped offline");
+    return;
+  }
+  socket.send(buildJobCancelMessage({ job_id: jobId }));
+  wsLogger.info({ jobId, kioskId }, "ws dispatch job.cancel");
 }
 
 export function clearInFlightForJob(kioskId: string, jobId: string) {

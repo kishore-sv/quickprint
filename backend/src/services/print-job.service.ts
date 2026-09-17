@@ -1,7 +1,7 @@
 import { randomBytes, randomUUID } from "crypto";
 import { and, desc, eq, isNull, not, notInArray, or } from "drizzle-orm";
 import { db } from "../db";
-import { printJobEvents, printJobs } from "../db/schema";
+import { printJobEvents, printJobs, refunds } from "../db/schema";
 import type { PrintJobStatus } from "../types/enums";
 import { PrintJobEventType } from "../types/enums";
 import { NotFoundError, PrintJobError } from "../utils/errors";
@@ -79,6 +79,12 @@ export type PrintJobListRow = {
   completedAt: Date | null;
   failedAt: Date | null;
   lastPiEventAt: Date | null;
+  refund?: {
+    id: string;
+    status: string;
+    amountPaise: number;
+    currency: string;
+  } | null;
 };
 
 export type ListUserJobsView = "all" | "active" | "ready";
@@ -103,7 +109,7 @@ export const ALLOWED_TRANSITIONS: Record<PrintJobStatus, PrintJobStatus[]> = {
   PAID: ["QUEUED", "CLAIMED"],
   QUEUED: ["CLAIMED", "CANCELLED"],
   CLAIMED: ["DOWNLOADING", "PRINTING", "FAILED", "CANCELLED"],
-  DOWNLOADING: ["PRINTING", "FAILED"],
+  DOWNLOADING: ["PRINTING", "FAILED", "CANCELLED"],
   PRINTING: ["COMPLETED", "FAILED"],
   COMPLETED: [],
   FAILED: [],
@@ -318,15 +324,65 @@ export async function listUserJobs(
   }
 
   const rows = await db
-    .select(printJobListSelection)
+    .select({
+      ...printJobListSelection,
+      refundId: refunds.id,
+      refundStatus: refunds.status,
+      refundAmountPaise: refunds.amountPaise,
+      refundCurrency: refunds.currency,
+    })
     .from(printJobs)
+    .leftJoin(refunds, eq(refunds.printJobId, printJobs.id))
     .where(and(...conditions))
     .orderBy(desc(printJobs.createdAt))
     .limit(limit + 1)
     .offset(offset);
 
   const has_more = rows.length > limit;
-  const items = has_more ? rows.slice(0, limit) : rows;
+  const sliced = has_more ? rows.slice(0, limit) : rows;
+  const items: PrintJobListRow[] = sliced.map((row) => ({
+    id: row.id,
+    jobNumber: row.jobNumber,
+    userId: row.userId,
+    kioskId: row.kioskId,
+    savedFileId: row.savedFileId,
+    status: row.status,
+    paymentStatus: row.paymentStatus,
+    originalFilename: row.originalFilename,
+    pageCount: row.pageCount,
+    copies: row.copies,
+    pageRange: row.pageRange,
+    colorMode: row.colorMode,
+    paperSize: row.paperSize,
+    duplex: row.duplex,
+    pagesPerSheet: row.pagesPerSheet,
+    order: row.order,
+    orientation: row.orientation,
+    fitToPage: row.fitToPage,
+    physicalSheets: row.physicalSheets,
+    amountPaise: row.amountPaise,
+    currency: row.currency,
+    saveFile: row.saveFile,
+    fileRetentionUntil: row.fileRetentionUntil,
+    createdAt: row.createdAt,
+    paidAt: row.paidAt,
+    claimedAt: row.claimedAt,
+    dispatchedAt: row.dispatchedAt,
+    piPhase: row.piPhase,
+    userErrorCode: row.userErrorCode,
+    completedAt: row.completedAt,
+    failedAt: row.failedAt,
+    lastPiEventAt: row.lastPiEventAt,
+    refund:
+      row.status === "CANCELLED" && row.refundId
+        ? {
+            id: row.refundId,
+            status: row.refundStatus!,
+            amountPaise: row.refundAmountPaise!,
+            currency: row.refundCurrency!,
+          }
+        : null,
+  }));
 
   return { items, page, limit, has_more };
 }

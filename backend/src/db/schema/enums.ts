@@ -31,3 +31,4 @@ export const paymentRecordStatusEnum = pgEnum("paymentrecordstatus", [
   "SUCCESS",
   "FAILED",
 ]);
+export const refundStatusEnum = pgEnum("refundstatus", ["PROCESSING", "REFUNDED", "FAILED"]);

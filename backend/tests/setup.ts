@@ -11,3 +11,4 @@ process.env.S3_BUCKET_NAME ??= "test";
 process.env.RAZORPAY_KEY_ID ??= "rzp_test";
 process.env.RAZORPAY_KEY_SECRET ??= "test_secret";
 process.env.NODE_ENV ??= "test";
+process.env.REDIS_URL ??= "redis://127.0.0.1:6379";

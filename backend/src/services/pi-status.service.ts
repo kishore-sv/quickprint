@@ -159,6 +159,7 @@ async function applyPiJobUpdateLocked(
 
   const updateGuard = and(
     eq(printJobs.id, jobId),
+    not(eq(printJobs.status, "CANCELLED")),
     buildNonTerminalStatusGuard(piStatusKey),
     buildMonotonicPhaseGuard(piStatusKey, incomingPhaseRank)
   );
