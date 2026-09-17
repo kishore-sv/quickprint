@@ -11,8 +11,10 @@ import {
   pageRangeForPiAgent,
 } from "../ws/kiosk-agent.protocol";
 import { getKioskAgentRegistry } from "../ws/kiosk-agent.registry";
+import { buildDispatchClaimWhere } from "./dispatch-claim";
 import { addEvent } from "./print-job.service";
 
+/** Throughput hint only — PostgreSQL claim is authoritative for concurrency. */
 const inFlightByKiosk = new Map<string, string>();
 
 function printSettingsForPi(job: typeof printJobs.$inferSelect) {
@@ -38,7 +40,6 @@ export async function findNextDispatchableJob(kioskId: string) {
         eq(printJobs.kioskId, kioskId),
         eq(printJobs.paymentStatus, "PAID"),
         eq(printJobs.status, "QUEUED"),
-        ne(printJobs.status, "CANCELLED"),
         isNull(printJobs.dispatchedAt)
       )
     )
@@ -47,15 +48,21 @@ export async function findNextDispatchableJob(kioskId: string) {
   return rows[0] ?? null;
 }
 
-function dispatchableJobCondition(kioskId: string, jobId: string) {
-  return and(
-    eq(printJobs.id, jobId),
-    eq(printJobs.kioskId, kioskId),
-    eq(printJobs.paymentStatus, "PAID"),
-    eq(printJobs.status, "QUEUED"),
-    ne(printJobs.status, "CANCELLED"),
-    isNull(printJobs.dispatchedAt)
-  );
+export async function claimJobForDispatch(kioskId: string, jobId: string) {
+  const now = new Date();
+  const [job] = await db
+    .update(printJobs)
+    .set({ dispatchedAt: now })
+    .where(buildDispatchClaimWhere(kioskId, jobId))
+    .returning();
+  return job ?? null;
+}
+
+async function releaseDispatchClaim(jobId: string) {
+  await db
+    .update(printJobs)
+    .set({ dispatchedAt: null })
+    .where(and(eq(printJobs.id, jobId), eq(printJobs.status, "QUEUED")));
 }
 
 export async function dispatchJobToKiosk(kioskId: string, jobId: string): Promise<boolean> {
@@ -65,20 +72,37 @@ export async function dispatchJobToKiosk(kioskId: string, jobId: string): Promis
     return false;
   }
 
-  if (inFlightByKiosk.get(kioskId)) {
+  const job = await claimJobForDispatch(kioskId, jobId);
+  if (!job) {
+    wsLogger.info(
+      { jobId, kioskId },
+      "dispatch claim rejected"
+    );
     return false;
   }
 
-  const now = new Date();
-  const [job] = await db
-    .update(printJobs)
-    .set({ dispatchedAt: now })
-    .where(dispatchableJobCondition(kioskId, jobId))
-    .returning();
-  if (!job) return false;
+  wsLogger.info(
+    { jobId: job.id, kioskId, status: job.status },
+    "dispatch claim succeeded"
+  );
 
   const storage = getStorageService();
   const fileUrl = await storage.getSignedUrl(job.storageKey, env.PI_JOB_DOWNLOAD_EXPIRES);
+
+  const [fresh] = await db
+    .select({ status: printJobs.status })
+    .from(printJobs)
+    .where(eq(printJobs.id, job.id))
+    .limit(1);
+
+  if (fresh?.status === "CANCELLED") {
+    await releaseDispatchClaim(job.id);
+    wsLogger.info(
+      { jobId: job.id, kioskId, status: "CANCELLED" },
+      "dispatch aborted job already cancelled"
+    );
+    return false;
+  }
 
   const payload = buildJobAssignedMessage({
     job_id: job.id,
@@ -92,7 +116,10 @@ export async function dispatchJobToKiosk(kioskId: string, jobId: string): Promis
 
   await addEvent(job.id, PrintJobEventType.PRINT_REQUESTED, { kiosk_id: kioskId });
 
-  wsLogger.info({ jobId: job.id, kioskId }, "ws dispatch job.assigned");
+  wsLogger.info(
+    { jobId: job.id, kioskId, status: fresh?.status ?? job.status },
+    "Pi dispatch sent"
+  );
   return true;
 }
 
@@ -123,12 +150,10 @@ function unacknowledgedJobCondition(kioskId: string) {
   return and(
     eq(printJobs.kioskId, kioskId),
     eq(printJobs.paymentStatus, "PAID"),
+    ne(printJobs.status, "CANCELLED"),
     isNotNull(printJobs.dispatchedAt),
     isNull(printJobs.lastPiEventAt),
-    or(
-      and(eq(printJobs.status, "QUEUED")),
-      and(eq(printJobs.status, "CLAIMED"))
-    )
+    or(eq(printJobs.status, "QUEUED"), eq(printJobs.status, "CLAIMED"))
   );
 }
 
@@ -184,11 +209,14 @@ export async function requeueUnacknowledgedJobsForUser(userId: string) {
 }
 
 export async function enqueueDispatchForKiosk(kioskId: string) {
-  if (inFlightByKiosk.has(kioskId)) {
-    return;
-  }
   const next = await findNextDispatchableJob(kioskId);
   if (!next) return;
+
+  if (inFlightByKiosk.get(kioskId) === next.id) {
+    wsLogger.debug({ jobId: next.id, kioskId }, "duplicate dispatch prevented");
+    return;
+  }
+
   const sent = await dispatchJobToKiosk(kioskId, next.id);
   if (!sent) {
     wsLogger.debug({ kioskId }, "ws dispatch skipped (offline or busy)");

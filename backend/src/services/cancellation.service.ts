@@ -1,15 +1,18 @@
 import { randomUUID } from "crypto";
-import { and, eq, inArray, sql } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { db } from "../db";
 import { payments, printJobEvents, printJobs, refunds } from "../db/schema";
 import type { InferSelectModel } from "drizzle-orm";
-import type { PrintJobStatus } from "../types/enums";
 import { PrintJobEventType } from "../types/enums";
 import { ConflictError, NotFoundError, PaymentError } from "../utils/errors";
 import { logger } from "../utils/logger";
 import { enqueueRefundJob } from "../queues/refund.queue";
 import { isJobCancellable } from "./cancellability";
 import { createRefundRecord } from "./refund.service";
+import {
+  buildPaidCancellationWhere,
+  buildUnpaidCancellationWhere,
+} from "./dispatch-claim";
 import { cancelJobOnKiosk } from "./kiosk-dispatch.service";
 
 export type CancelPrintJobResult = {
@@ -70,14 +73,14 @@ export async function cancelPrintJob(userId: string, jobId: string): Promise<Can
       );
     }
 
-    const cancellableStatuses: PrintJobStatus[] = check.paid
-      ? ["QUEUED", "CLAIMED", "DOWNLOADING"]
-      : ["CREATED", "PAYMENT_PENDING", "QUEUED"];
+    const cancellationWhere = check.paid
+      ? buildPaidCancellationWhere(job.id)
+      : buildUnpaidCancellationWhere(job.id);
 
     const [updated] = await tx
       .update(printJobs)
       .set({ status: "CANCELLED" })
-      .where(and(eq(printJobs.id, job.id), inArray(printJobs.status, cancellableStatuses)))
+      .where(cancellationWhere)
       .returning();
 
     if (!updated) {

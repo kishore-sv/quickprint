@@ -77,4 +77,15 @@ describe("isJobCancellable", () => {
       }).cancellable
     ).toBe(true);
   });
+
+  test("paid queued job awaiting Pi ack is not cancellable", () => {
+    expect(
+      isJobCancellable({
+        ...base,
+        status: "QUEUED",
+        paymentStatus: "PAID",
+        dispatchedAt: new Date(),
+      }).cancellable
+    ).toBe(false);
+  });
 });

@@ -36,6 +36,9 @@ export function isJobCancellable(job: JobCancellabilityInput): {
     if (display === "PRINTING" || job.status === "PRINTING") {
       return { cancellable: false, paid: true, alreadyCancelled: false };
     }
+    if (job.status === "QUEUED" && job.dispatchedAt != null) {
+      return { cancellable: false, paid: true, alreadyCancelled: false };
+    }
     if (
       PAID_CANCELLABLE_STATUSES.includes(job.status as PrintJobStatus) ||
       display === "QUEUED" ||
