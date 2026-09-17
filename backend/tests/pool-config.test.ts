@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { stripSslQueryParams } from "../src/db/pool-config";
+import { parseDatabaseUrl, stripSslQueryParams } from "../src/db/pool-config";
 
 describe("stripSslQueryParams", () => {
   test("removes sslmode from RDS URLs", () => {
@@ -21,5 +21,21 @@ describe("stripSslQueryParams", () => {
   test("leaves URLs without ssl params unchanged", () => {
     const url = "postgresql://user:pass@localhost:5432/quickprint";
     expect(stripSslQueryParams(url)).toBe(url);
+  });
+});
+
+describe("parseDatabaseUrl", () => {
+  test("parses RDS-style URLs", () => {
+    expect(
+      parseDatabaseUrl(
+        "postgresql://quickprint_admin:secret@quickprint-prod-db.cpwkog2a8tq4.ap-south-1.rds.amazonaws.com:5432/quickprint"
+      )
+    ).toEqual({
+      host: "quickprint-prod-db.cpwkog2a8tq4.ap-south-1.rds.amazonaws.com",
+      port: 5432,
+      user: "quickprint_admin",
+      password: "secret",
+      database: "quickprint",
+    });
   });
 });
