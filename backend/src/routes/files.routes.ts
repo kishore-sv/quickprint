@@ -6,6 +6,7 @@ import { env } from "../config/env";
 import { db } from "../db";
 import { savedFiles } from "../db/schema";
 import { documentConversionService } from "../files/document-conversion.service";
+import { convertImageBufferToPdf, detectImageFormat } from "../files/image-to-pdf.service";
 import {
   assertDocBuffer,
   assertDocxBuffer,
@@ -62,7 +63,8 @@ filesRoutes.post("/files", requireAuth, upload.single("file"), async (req, res, 
       assertDocBuffer(content);
       content = await documentConversionService.convertWordToPdf(content, "doc");
     } else if (kind === "image") {
-      throw new ValidationError("Upload PDF for printing; convert images in the client before upload");
+      const imageFormat = detectImageFormat(content, file.mimetype, submittedOriginalName);
+      content = await convertImageBufferToPdf(content, imageFormat);
     } else {
       assertPdfBufferHeader(content);
     }

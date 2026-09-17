@@ -384,7 +384,18 @@ export default function PrintPageContent() {
           const base = (i / drafts.length) * 100;
           setUploadProgress(Math.round(base + p / drafts.length));
         };
-        const saved = await uploadFile(d.file, settings.save_file, progress, d.displayName);
+        let fileToUpload = d.file;
+        if (isSupportedImage(fileToUpload)) {
+          fileToUpload = await imageFileToPdf(fileToUpload);
+        } else if (!isPdf(fileToUpload) && !isWordDocument(fileToUpload)) {
+          throw new Error(getUnsupportedFileMessage());
+        }
+        const saved = await uploadFile(
+          fileToUpload,
+          settings.save_file,
+          progress,
+          d.displayName
+        );
         const file = isWordDocument(d.file) ? await fileFromSaved(saved) : d.file;
         const selectedPages =
           d.selectedPages.size > 0 ? d.selectedPages : allPages(saved.page_count);

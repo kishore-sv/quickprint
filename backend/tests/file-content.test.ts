@@ -54,9 +54,10 @@ describe("file content validation", () => {
     expect(() => assertPdfBufferHeader(Buffer.from("NOTPDF"))).toThrow(ValidationError);
   });
 
-  test("detects client-converted PDF even when display name is png", () => {
+  test("detects client-converted PDF even when multipart name is png", () => {
     const pdf = minimalPdfBuffer();
     expect(detectUploadKind("application/pdf", "scanner.pdf", pdf)).toBe("pdf");
+    expect(detectUploadKind("application/pdf", "me-prof.png", pdf)).toBe("pdf");
   });
 
   test("detects raw doc and docx uploads", () => {
