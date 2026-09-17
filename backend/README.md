@@ -33,17 +33,11 @@ cp .env.example .env
 
 ## Better Auth migration
 
-Primary (Bun):
-
 ```bash
 bun run auth:migrate
 ```
 
-Fallback (npm CLI):
-
-```bash
-npx @better-auth/cli@1.7.4 migrate --yes --config ./src/auth/index.ts
-```
+Uses `@better-auth/cli` (the `better-auth` package does not ship a CLI binary).
 
 Auth routes: `{BETTER_AUTH_URL}/api/auth/*`
 

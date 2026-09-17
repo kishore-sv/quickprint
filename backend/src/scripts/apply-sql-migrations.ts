@@ -12,6 +12,8 @@ const MIGRATIONS_DIR = join(import.meta.dir, "../../drizzle");
 async function main() {
   const files = (await readdir(MIGRATIONS_DIR))
     .filter((f) => f.endsWith(".sql"))
+    // Drizzle Kit baseline migrations (0000_*.sql) are applied via db:push / db:migrate, not db:apply.
+    .filter((f) => !/^0000_/.test(f))
     .sort();
 
   if (files.length === 0) {
