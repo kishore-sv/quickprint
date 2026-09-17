@@ -114,7 +114,8 @@ export async function fetchPrintJobs(query: string): Promise<PrintJobListRespons
 export async function uploadFile(
   file: File,
   saveForLater: boolean,
-  onProgress?: (percent: number) => void
+  onProgress?: (percent: number) => void,
+  originalFilename?: string
 ): Promise<import("@/lib/types").SavedFile> {
   const { data: sessionData } = await authClient.getSession();
   if (!sessionData?.session) throw new ApiError("Not authenticated", 401);
@@ -122,6 +123,9 @@ export async function uploadFile(
   const token = sessionData.session.token;
   const form = new FormData();
   form.append("file", file);
+  if (originalFilename) {
+    form.append("original_filename", originalFilename);
+  }
   const url = new URL(`${API_URL}/files`);
   if (saveForLater) url.searchParams.set("save_for_later", "true");
 

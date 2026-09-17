@@ -30,7 +30,21 @@ S3_BUCKET_NAME=
 
 Aliases: `SUPABASE_S3_*` (see `backend/.env.example`).
 
+## Supported upload formats
+
+QuickPrint accepts these upload formats and stores everything as **PDF**:
+
+| Upload format | Processing |
+|---------------|------------|
+| PDF | Validated and stored as PDF |
+| JPG / JPEG | Client converts to PDF before upload |
+| PNG | Client converts to PDF before upload |
+| DOC | Backend converts to PDF via LibreOffice headless |
+| DOCX | Backend converts to PDF via LibreOffice headless |
+
+The Raspberry Pi agent and CUPS always receive PDF only.
+
 ## Access pattern
 
-1. `POST /files` — validate PDF (or DOCX stub), upload, insert `saved_files`.
+1. `POST /files` — validate/convert to PDF, upload, insert `saved_files`.
 2. `GET /files/:id` — metadata + presigned URL for owner only.

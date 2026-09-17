@@ -82,6 +82,8 @@ export async function draftsFromPersisted(
         : [...Array(saved.page_count)].map((_, j) => j + 1);
     return {
       file,
+      displayName: saved.original_filename,
+      displaySizeBytes: saved.file_size_bytes,
       pageCount: saved.page_count,
       savedFile: saved,
       selectedPages: new Set(pages.filter((n) => n >= 1 && n <= saved.page_count)),

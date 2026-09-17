@@ -1,17 +1,17 @@
 # Database performance
 
-QuickPrint uses **Neon PostgreSQL** with **Drizzle ORM** and **`pg` connection pooling** on a long-running **Bun + Express** API (Railway). This document records connection setup, indexes, query patterns, and measurement notes.
+QuickPrint uses **PostgreSQL** with **Drizzle ORM** and **`pg` connection pooling** on a long-running **Bun + Express** API (EC2). This document records connection setup, indexes, query patterns, and measurement notes.
 
 ## Regions and latency
 
 | Component | Typical deployment | Notes |
 |-----------|-------------------|--------|
 | Next.js client | Vercel (edge/CDN) | UI only; no `DATABASE_URL` |
-| API | Railway | Long-running process; reuse DB pool |
-| PostgreSQL | Neon | Prefer same AWS region as Railway when possible |
+| API | EC2 | Long-running process; reuse DB pool |
+| PostgreSQL | AWS RDS (same region as EC2) | Private VPC; not publicly exposed |
 | Object storage | Supabase S3 (`ap-south-1` in examples) | PDF bytes; not in Postgres |
 
-**Recommendation:** In Neon Console → Project Settings, note the database region. In Railway → service → Settings, align the API region (e.g. `aws-ap-south-1` for India). Cross-region API↔Neon adds tens of ms per query. Changing production region requires a planned Neon/Railway migration (not automated in app code).
+**Recommendation:** Place RDS in the **same AWS region** as the EC2 backend (e.g. `ap-south-1`). Cross-region API↔database adds tens of ms per query.
 
 ## Connection method
 
@@ -21,10 +21,12 @@ QuickPrint uses **Neon PostgreSQL** with **Drizzle ORM** and **`pg` connection p
 
 ### `DATABASE_URL`
 
-- Use Neon’s **pooled** connection string for production when running multiple API instances or to limit server connections:
-  - Hostname contains `-pooler` (e.g. `ep-xxx-pooler.ap-southeast-1.aws.neon.tech`).
-- Direct (non-pooler) hostname is acceptable for a **single** long-lived Railway replica with a small `max` pool size.
-- `sslmode` is normalized to `verify-full` in [`backend/src/config/env.ts`](../backend/src/config/env.ts) for Neon compatibility.
+- Production RDS example: `postgresql://USER:PASS@host.rds.amazonaws.com:5432/quickprint` (no `sslmode` in URL)
+- RDS TLS on EC2: install `/etc/ssl/rds/global-bundle.pem`; pool uses `ssl: { ca, rejectUnauthorized: true }` ([`backend/src/db/pool-config.ts`](../backend/src/db/pool-config.ts))
+- Optional: `RDS_CA_CERT_PATH` overrides default CA path
+- Local dev: `postgresql://USER:PASS@localhost:5432/quickprint` (no CA file → no explicit pool SSL)
+- Neon hosts (`*.neon.tech`): `sslmode=require` is normalized to `verify-full` in [`backend/src/config/env.ts`](../backend/src/config/env.ts).
+- `channel_binding` is stripped from all URLs (Neon-only parameter).
 - **Never** expose `DATABASE_URL` to the Next.js client.
 
 ### Pool settings
@@ -37,7 +39,15 @@ Environment (optional):
 | `DB_POOL_IDLE_MS` | `30000` | Idle client timeout |
 | `DB_POOL_CONNECT_MS` | `10000` | Connection timeout |
 
-`application_name=quickprint-api` is set on the pool for Neon monitoring.
+`application_name=quickprint-api` is set on the pool for PostgreSQL monitoring.
+
+For a single EC2 backend process, the default pool size is conservative. Do not increase without measuring RDS `max_connections`.
+
+### Connectivity test
+
+```bash
+cd backend && bun run db:ping
+```
 
 ## Indexes (application tables)
 
@@ -147,8 +157,6 @@ Run after deploy or with local API + `AUTH_HEADER`:
 ```bash
 cd backend && API_URL=http://localhost:8000 AUTH_HEADER="Bearer …" bun run src/scripts/bench-api.ts
 ```
-
-Implementation verification (local): backend `bun run typecheck`, `bun test` (13 pass); client `bun run build` succeeded. Fill medians in the table above when measuring against your environment.
 
 ## Identified bottlenecks (addressed in code)
 

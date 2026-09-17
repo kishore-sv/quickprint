@@ -10,6 +10,8 @@ import { LinkButton } from "@/components/ui/link-button";
 import { Spinner } from "@/components/ui/spinner";
 import { FileDropzone } from "@/components/print/file-dropzone";
 import {
+  getDraftDisplayName,
+  getDraftDisplaySizeBytes,
   PrintSetupForm,
   type PrintFileDraft,
 } from "@/components/print/print-setup-form";
@@ -28,6 +30,12 @@ import {
   type PrintFlowStep,
 } from "@/lib/print-session";
 import { validatePdfFile } from "@/lib/pdf-validation";
+import {
+  getUnsupportedFileMessage,
+  isPdf,
+  isSupportedImage,
+  isWordDocument,
+} from "@/lib/supported-file-types";
 import type {
   PaymentCreateResponse,
   PricingConfig,
@@ -170,6 +178,8 @@ export default function PrintPageContent() {
       setDrafts([
         {
           file,
+          displayName: saved.original_filename,
+          displaySizeBytes: saved.file_size_bytes,
           pageCount: j.page_count,
           savedFile: saved,
           selectedPages: new Set(pages.length > 0 ? pages : [...allPages(j.page_count)]),
@@ -320,13 +330,30 @@ export default function PrintPageContent() {
       try {
         const next: PrintFileDraft[] = [];
         for (const raw of files) {
-          let candidate = raw;
-          if (candidate.type.startsWith("image/")) {
-            candidate = await imageFileToPdf(candidate);
+          if (isWordDocument(raw)) {
+            next.push({
+              file: raw,
+              displayName: raw.name,
+              displaySizeBytes: raw.size,
+              pageCount: 0,
+              savedFile: null,
+              selectedPages: new Set(),
+            });
+            continue;
           }
+
+          let candidate = raw;
+          if (isSupportedImage(raw)) {
+            candidate = await imageFileToPdf(raw);
+          } else if (!isPdf(raw)) {
+            throw new Error(getUnsupportedFileMessage());
+          }
+
           const { pageCount } = await validatePdfFile(candidate);
           next.push({
             file: candidate,
+            displayName: raw.name,
+            displaySizeBytes: raw.size,
             pageCount,
             savedFile: null,
             selectedPages: allPages(pageCount),
@@ -357,12 +384,18 @@ export default function PrintPageContent() {
           const base = (i / drafts.length) * 100;
           setUploadProgress(Math.round(base + p / drafts.length));
         };
-        const saved = await uploadFile(d.file, settings.save_file, progress);
+        const saved = await uploadFile(d.file, settings.save_file, progress, d.displayName);
+        const file = isWordDocument(d.file) ? await fileFromSaved(saved) : d.file;
+        const selectedPages =
+          d.selectedPages.size > 0 ? d.selectedPages : allPages(saved.page_count);
         uploaded.push({
           ...d,
+          file,
+          displayName: saved.original_filename,
+          displaySizeBytes: saved.file_size_bytes,
           savedFile: saved,
           pageCount: saved.page_count,
-          selectedPages: d.selectedPages,
+          selectedPages,
         });
       }
       setUploadProgress(100);
@@ -567,6 +600,7 @@ export default function PrintPageContent() {
 
             <FileDropzone
               onFilesSelected={(f) => void processIncomingFiles(f)}
+              onFilesRejected={showError}
               validating={validating}
               disabled={uploading}
             />
@@ -574,7 +608,7 @@ export default function PrintPageContent() {
             {drafts.length > 0 && (
               <div className="space-y-2">
                 {drafts.map((d, i) => (
-                  <Card key={`${d.file.name}-${i}`} className="relative py-0 shadow-none">
+                  <Card key={`${getDraftDisplayName(d)}-${i}`} className="relative py-0 shadow-none">
                     <CardContent className="py-3 pl-4 pr-12 text-sm">
                       {i === 0 && (
                         <Button
@@ -589,9 +623,12 @@ export default function PrintPageContent() {
                           <XIcon className="size-3.5" />
                         </Button>
                       )}
-                      <p className="font-medium truncate pr-1">{d.file.name}</p>
+                      <p className="font-medium truncate pr-1">{getDraftDisplayName(d)}</p>
                       <p className="text-muted-foreground">
-                        {(d.file.size / 1024).toFixed(1)} KB · {d.pageCount} pages
+                        {(getDraftDisplaySizeBytes(d) / 1024).toFixed(1)} KB
+                        {d.pageCount > 0
+                          ? ` · ${d.pageCount} pages`
+                          : " · Word document — page count after upload"}
                       </p>
                     </CardContent>
                   </Card>

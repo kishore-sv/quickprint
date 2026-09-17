@@ -1,6 +1,6 @@
 # Database
 
-Single **Neon PostgreSQL** database.
+Single **PostgreSQL** database (production: AWS RDS; development: local PostgreSQL or any compatible host).
 
 | Area | Migration tool | Tables |
 |------|----------------|--------|
@@ -11,6 +11,15 @@ Single **Neon PostgreSQL** database.
 
 - **Application data:** Drizzle (`backend/src/db/schema/`, `backend/src/db/relations.ts`)
 - **Better Auth:** managed by Better Auth CLI (not duplicated in app schema)
+
+## Connection
+
+- **Driver:** `drizzle-orm/node-postgres` + `pg.Pool` via `DATABASE_URL`
+- **Test connectivity:** `cd backend && bun run db:ping`
+
+## RDS migration
+
+See [`docs/rds-migration.md`](rds-migration.md) for Neon → AWS RDS cutover steps.
 
 ## Kiosk tokens
 

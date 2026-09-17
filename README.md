@@ -52,7 +52,7 @@ Copy from `backend/.env.example`:
 | `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | Optional Google login |
 | `S3_*` | Supabase S3 endpoint, keys, bucket |
 | `RAZORPAY_*` | Key id, secret, webhook secret |
-| `MAX_UPLOAD_BYTES` | Default 20MB |
+| `MAX_UPLOAD_BYTES` | Default 50MB |
 
 ### Client (`client/.env.local`)
 

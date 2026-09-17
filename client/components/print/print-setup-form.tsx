@@ -67,10 +67,22 @@ const NUP_OPTIONS = [
 
 export type PrintFileDraft = {
   file: File;
+  /** User-facing filename before internal PDF conversion. */
+  displayName: string;
+  /** Original upload size in bytes. */
+  displaySizeBytes: number;
   pageCount: number;
   savedFile: SavedFile | null;
   selectedPages: Set<number>;
 };
+
+export function getDraftDisplayName(draft: PrintFileDraft): string {
+  return draft.savedFile?.original_filename ?? draft.displayName;
+}
+
+export function getDraftDisplaySizeBytes(draft: PrintFileDraft): number {
+  return draft.savedFile?.file_size_bytes ?? draft.displaySizeBytes;
+}
 
 type PrintSetupFormProps = {
   drafts: PrintFileDraft[];
@@ -322,7 +334,7 @@ export function PrintSetupForm({
           File {fileIndex + 1} of {drafts.length}
         </p>
         <h1 className="break-all text-xl font-semibold leading-snug tracking-tight">
-          {draft.file.name}
+          {getDraftDisplayName(draft)}
         </h1>
         <p className="text-sm text-muted-foreground">{pageCount} pages</p>
       </div>
@@ -341,14 +353,14 @@ export function PrintSetupForm({
             <AccordionContent className="space-y-2 pb-3">
               {drafts.map((d, i) => (
                 <Button
-                  key={d.savedFile?.id ?? `${d.file.name}-${i}`}
+                  key={d.savedFile?.id ?? `${getDraftDisplayName(d)}-${i}`}
                   type="button"
                   variant={i === fileIndex ? "secondary" : "ghost"}
                   className="h-auto w-full justify-start py-2 text-left font-normal"
                   onClick={() => onFileIndexChange(i)}
                 >
                   <span className="truncate">
-                    {i + 1}. {d.file.name}
+                    {i + 1}. {getDraftDisplayName(d)}
                   </span>
                 </Button>
               ))}
@@ -811,7 +823,7 @@ export function PrintSetupForm({
               </div>
             ) : (
               <Carousel
-                key={`${draft.file.name}-${previewStartIndex}-${previewOpen}`}
+                key={`${getDraftDisplayName(draft)}-${previewStartIndex}-${previewOpen}`}
                 setApi={setCarouselApi}
                 opts={{ startIndex: previewStartIndex, align: "center" }}
                 className="absolute inset-0 h-full w-full"

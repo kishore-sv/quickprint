@@ -96,9 +96,10 @@ export default function PrivacyPolicyPage() {
           <li>Page count (for PDFs)</li>
         </ul>
         <p>
-          The Service is designed for PDF printing. The client may convert supported images (such as
-          JPEG or PNG) to PDF before upload. The backend validates PDF, JPEG, PNG, and DOCX MIME
-          types, but server-side DOCX conversion is not currently enabled for printing.
+          The Service is designed for PDF printing. Supported upload formats are PDF, DOC, DOCX,
+          JPG, and PNG. Images (JPEG and PNG) are converted to PDF in the client before upload.
+          Word documents (DOC and DOCX) are converted to PDF on the server before storage. All
+          stored and printed files are PDF.
         </p>
         <p>
           Uploaded files are stored in private object storage (Supabase Storage using an S3-compatible

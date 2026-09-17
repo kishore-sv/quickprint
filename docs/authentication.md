@@ -38,7 +38,7 @@ Fallback:
 npx @better-auth/cli@1.7.4 migrate --yes --config ./src/auth/index.ts
 ```
 
-Uses the same Neon `DATABASE_URL` as application data. Inspect existing auth tables before migrating; do not run destructive drops on production.
+Uses the same PostgreSQL `DATABASE_URL` as application data. Inspect existing auth tables before migrating; do not run destructive drops on production.
 
 ## Environment (backend)
 

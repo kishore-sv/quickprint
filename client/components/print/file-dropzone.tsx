@@ -3,6 +3,11 @@
 import { useCallback, useRef } from "react";
 import { useDropzone } from "react-dropzone";
 import { CameraIcon, UploadIcon } from "lucide-react";
+import {
+  getUnsupportedFileMessage,
+  SUPPORTED_FILE_ACCEPT,
+  SUPPORTED_FORMATS_LABEL,
+} from "@/lib/supported-file-types";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -10,6 +15,7 @@ import { Spinner } from "@/components/ui/spinner";
 
 type FileDropzoneProps = {
   onFilesSelected: (files: File[]) => void;
+  onFilesRejected?: (message: string) => void;
   validating?: boolean;
   disabled?: boolean;
   className?: string;
@@ -17,6 +23,7 @@ type FileDropzoneProps = {
 
 export function FileDropzone({
   onFilesSelected,
+  onFilesRejected,
   validating = false,
   disabled = false,
   className,
@@ -30,13 +37,16 @@ export function FileDropzone({
     [onFilesSelected]
   );
 
+  const onDropRejected = useCallback(() => {
+    onFilesRejected?.(getUnsupportedFileMessage());
+  }, [onFilesRejected]);
+
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
+    onDropRejected,
     multiple: true,
     disabled: disabled || validating,
-    accept: {
-      "application/pdf": [".pdf"],
-    },
+    accept: SUPPORTED_FILE_ACCEPT,
   });
 
   return (
@@ -64,7 +74,7 @@ export function FileDropzone({
             pick as many as you need, or drop them here
           </p>
           <p className="text-muted-foreground mt-2 text-xs">
-            PDF only - validated before upload · up to 20 MB
+            Supported formats: {SUPPORTED_FORMATS_LABEL} · up to 50 MB
           </p>
           <Button
             type="button"
@@ -80,7 +90,7 @@ export function FileDropzone({
       <input
         ref={cameraRef}
         type="file"
-        accept="image/*"
+        accept="image/jpeg,image/png"
         capture="environment"
         className="hidden"
         onChange={(e) => {

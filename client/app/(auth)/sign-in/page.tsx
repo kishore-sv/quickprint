@@ -5,6 +5,7 @@ import { LoginForm } from "@/components/login-form";
 import { Button } from "@/components/ui/button";
 import { PrinterIcon } from "lucide-react";
 import { authPageMaxWidthClass } from "@/lib/layout";
+import { QuickPrintLogo } from "@/components/quickprint-logo";
 
 export default function SignInPage() {
   return (
@@ -17,10 +18,11 @@ export default function SignInPage() {
           render={<Link href="/sign-in" />}
           className="h-auto gap-2 self-center p-0 font-medium normal-case tracking-normal hover:bg-transparent"
         >
-          <div className="flex size-6 items-center justify-center rounded-md bg-primary text-primary-foreground">
+          {/* <div className="flex size-6 items-center justify-center rounded-md bg-primary text-primary-foreground">
             <PrinterIcon className="size-4" />
           </div>
-          QuickPrint
+          QuickPrint */}
+           <QuickPrintLogo className="text-2xl" />
         </Button>
         <LoginForm />
       </div>
