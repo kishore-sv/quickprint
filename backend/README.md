@@ -24,7 +24,7 @@ cp .env.example .env
 | `bun run typecheck` | TypeScript check |
 | `bun run test` | Unit tests |
 | `bun run db:generate` | Drizzle Kit generate SQL from schema |
-| `bun run db:migrate` | Apply Drizzle Kit migrations |
+| `bun run db:migrate` | Apply Drizzle Kit migrations (set `RDS_CA_CERT_PATH` on EC2 for RDS) |
 | `bun run db:apply` | Apply additive SQL in `drizzle/*.sql` |
 | `bun run db:ping` | Test database connectivity |
 | `bun run db:check` | Schema drift check |

@@ -173,6 +173,16 @@ From `backend/`:
 
 **Bootstrap note:** `db:apply` only contains `ALTER TABLE` / `CREATE INDEX` migrations. Base application tables historically came from legacy Alembic `001_initial` (not in this repo). A completely empty RDS needs base schema before `db:apply` is meaningful.
 
+**Drizzle Kit on EC2 (RDS TLS):** [`drizzle.config.ts`](../backend/drizzle.config.ts) enables SSL only when `RDS_CA_CERT_PATH` is set (unlike the runtime pool, which also auto-detects `/etc/ssl/rds/global-bundle.pem`). On EC2:
+
+```bash
+export RDS_CA_CERT_PATH=/etc/ssl/rds/global-bundle.pem
+bun run db:migrate
+# or: bunx drizzle-kit push
+```
+
+Local Mac (Neon/localhost): leave `RDS_CA_CERT_PATH` unset — Drizzle Kit connects without the RDS CA bundle.
+
 ---
 
 ### PATH A — Fresh RDS (development / test data only)

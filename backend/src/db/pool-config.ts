@@ -22,11 +22,23 @@ export function resolveRdsCaPath(): string | undefined {
   return undefined;
 }
 
-export function buildRdsPoolSsl(): ConnectionOptions | undefined {
-  const caPath = resolveRdsCaPath();
-  if (!caPath) return undefined;
+function readRdsCa(caPath: string): ConnectionOptions {
   return {
     ca: fs.readFileSync(caPath, "utf8"),
     rejectUnauthorized: true,
   };
+}
+
+/** Runtime pool: explicit RDS_CA_CERT_PATH or default EC2 CA path if present. */
+export function buildRdsPoolSsl(): ConnectionOptions | undefined {
+  const caPath = resolveRdsCaPath();
+  if (!caPath) return undefined;
+  return readRdsCa(caPath);
+}
+
+/** Drizzle Kit / CLI: only when RDS_CA_CERT_PATH is set (safe for local Mac without CA file). */
+export function buildRdsSslFromExplicitPath(): ConnectionOptions | undefined {
+  const configured = process.env.RDS_CA_CERT_PATH?.trim();
+  if (!configured) return undefined;
+  return readRdsCa(configured);
 }

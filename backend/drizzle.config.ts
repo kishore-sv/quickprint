@@ -1,10 +1,18 @@
 import { defineConfig } from "drizzle-kit";
+import {
+  buildRdsSslFromExplicitPath,
+  stripSslQueryParams,
+} from "./src/db/pool-config";
+
+const databaseUrl = process.env.DATABASE_URL!;
+const ssl = buildRdsSslFromExplicitPath();
 
 export default defineConfig({
   schema: ["./src/db/schema/index.ts", "./src/db/relations.ts"],
   out: "./drizzle",
   dialect: "postgresql",
   dbCredentials: {
-    url: process.env.DATABASE_URL!,
+    url: ssl ? stripSslQueryParams(databaseUrl) : databaseUrl,
+    ...(ssl ? { ssl } : {}),
   },
 });
