@@ -558,7 +558,7 @@ export default function PrintPageContent() {
             showSuccess(
               connectedKiosk
                 ? `Ready to print at ${connectedKiosk.name}`
-                : "Payment successful — scan the kiosk to print"
+                : "Payment successful - scan the kiosk to print"
             );
             router.push("/scan");
           } catch (err) {

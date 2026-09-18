@@ -15,6 +15,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
+import { ThemeToggleMenuRow } from "@/components/theme-toggle-menu-row";
 import { pageMaxWidthClass } from "@/lib/layout";
 
 export function TopBar() {
@@ -77,6 +78,8 @@ export function TopBar() {
                 <p className="truncate text-xs text-muted-foreground">{email}</p>
               </DropdownMenuLabel>
             </DropdownMenuGroup>
+            <DropdownMenuSeparator />
+            <ThemeToggleMenuRow />
             <DropdownMenuSeparator />
             <DropdownMenuItem variant="destructive" onClick={() => void handleLogout()}>
               Logout
