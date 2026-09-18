@@ -18,7 +18,7 @@ import {
 import { env } from "../config/env";
 
 const KIOSK_CODE = "KIOSK-001";
-const KIOSK_NAME = "Development Kiosk";
+const KIOSK_NAME = "L Block Kiosk";
 const LEGACY_KIOSK_NAME = "Kiosk-1";
 
 function publicToken(): string {
