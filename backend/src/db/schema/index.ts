@@ -8,3 +8,4 @@ export * from "./print-jobs";
 export * from "./print-job-events";
 export * from "./payments";
 export * from "./refunds";
+export * from "./operational-logs";

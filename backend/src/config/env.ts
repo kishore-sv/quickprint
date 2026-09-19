@@ -8,7 +8,14 @@ const envSchema = z.object({
   GOOGLE_CLIENT_ID: z.string().optional(),
   GOOGLE_CLIENT_SECRET: z.string().optional(),
   FRONTEND_URL: z.string().url(),
+  ADMIN_URL: z.string().url().default("http://localhost:3001"),
   CORS_ORIGINS: z.string().default("http://localhost:3000"),
+  ADMIN_SEED_EMAIL: z.string().email().optional(),
+  ADMIN_SEED_PASSWORD: z.string().min(8).optional(),
+  ALLOW_ADMIN_SEED: z
+    .string()
+    .optional()
+    .transform((v) => v === "true" || v === "1"),
   S3_ENDPOINT: z.string().min(1),
   S3_REGION: z.string().default("ap-south-1"),
   S3_ACCESS_KEY_ID: z.string().min(1),
@@ -105,7 +112,12 @@ export function corsOrigins(): string[] {
 }
 
 export function allowedCorsOrigins(): string[] {
-  const origins = new Set([env.FRONTEND_URL, ...corsOrigins(), KIOSK_DISPLAY_BOOTSTRAP_ORIGIN]);
+  const origins = new Set([
+    env.FRONTEND_URL,
+    env.ADMIN_URL,
+    ...corsOrigins(),
+    KIOSK_DISPLAY_BOOTSTRAP_ORIGIN,
+  ]);
   return [...origins];
 }
 

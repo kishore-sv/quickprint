@@ -1,7 +1,7 @@
 import { and, asc, eq, isNotNull, isNull, ne, or } from "drizzle-orm";
 import { env } from "../config/env";
 import { db } from "../db";
-import { printJobs } from "../db/schema";
+import { kiosks, printJobs } from "../db/schema";
 import { PrintJobEventType } from "../types/enums";
 import { getStorageService } from "../storage/storage.service";
 import { wsLogger } from "../utils/logger";
@@ -66,6 +66,11 @@ async function releaseDispatchClaim(jobId: string) {
 }
 
 export async function dispatchJobToKiosk(kioskId: string, jobId: string): Promise<boolean> {
+  const [kiosk] = await db.select().from(kiosks).where(eq(kiosks.id, kioskId)).limit(1);
+  if (!kiosk || kiosk.status !== "ACTIVE") {
+    return false;
+  }
+
   const registry = getKioskAgentRegistry();
   const socket = registry.getConnection(kioskId);
   if (!socket || socket.readyState !== 1) {

@@ -45,12 +45,15 @@ const mockKiosk = {
   publicToken: "pub-tok",
   name: "Development Kiosk",
   location: null,
+  description: null,
   status: "ACTIVE" as const,
   createdAt: new Date(),
   updatedAt: new Date(),
   lastSeenAt: null,
   agentTokenHash: "agent-hash",
   displayTokenHash: hashDisplayToken("valid-display-token"),
+  agentHealth: null,
+  agentVersion: null,
 };
 
 const expectedScanUrl = buildKioskScanUrl("pub-tok", env.FRONTEND_URL);

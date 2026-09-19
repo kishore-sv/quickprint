@@ -19,6 +19,7 @@
     "db:setup:local": "bun run auth:migrate:local && bun run db:apply",
     "retention:cleanup": "bun run src/scripts/retention-cleanup.ts",
     "kiosk:seed": "bun run db:apply && bun run src/scripts/seed-kiosk-1.ts",
+    "admin:seed": "bun run src/scripts/seed-admin.ts",
     "kiosk:qr": "bun run src/scripts/generate-kiosk-qr.ts",
     "worker:refund": "bun run src/workers/refund.worker.ts"
   },

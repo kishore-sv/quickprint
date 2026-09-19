@@ -13,6 +13,7 @@ import { kiosksRoutes } from "./routes/kiosks.routes";
 import { meRoutes } from "./routes/me.routes";
 import { paymentsRoutes } from "./routes/payments.routes";
 import { printJobsRoutes } from "./routes/print-jobs.routes";
+import { adminRoutes } from "./routes/admin.routes";
 import { logger } from "./utils/logger";
 
 export function createApp() {
@@ -69,6 +70,7 @@ export function createApp() {
   app.use(printJobsRoutes);
   app.use(paymentsRoutes);
   app.use(kiosksRoutes);
+  app.use("/admin", adminRoutes);
 
   app.use(errorMiddleware);
 

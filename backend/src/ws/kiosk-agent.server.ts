@@ -1,6 +1,11 @@
 import type { WebSocket } from "ws";
 import { authenticateKioskAgent } from "../services/kiosk-agent-auth.service";
 import {
+  logAgentConnected,
+  logAgentDisconnected,
+  persistAgentHeartbeat,
+} from "../services/kiosk-health.service";
+import {
   onAgentConnected,
   requeueUnacknowledgedJobsForKiosk,
 } from "../services/kiosk-dispatch.service";
@@ -44,6 +49,7 @@ export async function handleKioskAgentConnection(
   registry.register(kiosk.id, ws);
   await registry.touchKioskLastSeen(kiosk.id);
   await onAgentConnected(kiosk.id);
+  void logAgentConnected(kiosk.id);
 
   let messageChain: Promise<void> = Promise.resolve();
   ws.on("message", (data) => {
@@ -58,12 +64,14 @@ export async function handleKioskAgentConnection(
     registry.unregister(kiosk.id, ws);
     clearInFlightKiosk(kiosk.id);
     void requeueUnacknowledgedJobsForKiosk(kiosk.id);
+    void logAgentDisconnected(kiosk.id);
   });
 
   ws.on("error", () => {
     registry.unregister(kiosk.id, ws);
     clearInFlightKiosk(kiosk.id);
     void requeueUnacknowledgedJobsForKiosk(kiosk.id);
+    void logAgentDisconnected(kiosk.id);
   });
 }
 
@@ -90,6 +98,11 @@ async function handleMessage(kioskId: string, raw: string) {
   if (msg.type === PiOutboundType.AGENT_HEARTBEAT) {
     const registry = getKioskAgentRegistry();
     await registry.touchKioskLastSeen(kioskId);
+    const health =
+      msg.health && typeof msg.health === "object"
+        ? (msg.health as Record<string, unknown>)
+        : null;
+    await persistAgentHeartbeat(kioskId, health);
     return;
   }
 
