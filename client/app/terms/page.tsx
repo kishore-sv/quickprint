@@ -114,13 +114,16 @@ export default function TermsOfServicePage() {
           payment credentials are handled by Razorpay.
         </p>
         <p>
-          The current application does not provide an automated refund workflow. If you believe you
-          are entitled to a refund because of a payment or printing issue, contact{" "}
+          Eligible paid jobs cancelled before printing starts receive an automatic refund through
+          Razorpay. For other refund questions, see our{" "}
+          <a className="text-primary underline-offset-4 hover:underline" href="/refunds">
+            Refunds Policy
+          </a>{" "}
+          or contact{" "}
           <a className="text-primary underline-offset-4 hover:underline" href={`mailto:${LEGAL_CONTACT_EMAIL}`}>
             {LEGAL_CONTACT_EMAIL}
-          </a>{" "}
-          with your job number and payment details. Eligible refund requests are handled on a
-          case-by-case basis.
+          </a>
+          .
         </p>
       </LegalSection>
 
@@ -139,10 +142,14 @@ export default function TermsOfServicePage() {
 
       <LegalSection id="cancellation" title="9. Cancellation">
         <p>
-          You may cancel an unpaid print job while it is still in an eligible pre-payment or
-          unpaid queued state through the Service. Once a job has been paid for, cancellation through
-          the current application is not supported. Paid jobs follow the printing and support process
-          described above.
+          You may cancel an unpaid print job while it is still in an eligible pre-payment or unpaid
+          queued state through the Service. Paid jobs may be cancelled from the app while they are
+          still in queue and before printing has started; eligible cancellations receive a refund as
+          described in our{" "}
+          <a className="text-primary underline-offset-4 hover:underline" href="/refunds">
+            Refunds Policy
+          </a>
+          . Jobs cannot be cancelled once printing has started.
         </p>
       </LegalSection>
 

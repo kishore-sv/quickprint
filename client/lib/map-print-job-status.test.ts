@@ -67,6 +67,19 @@ describe("mapPrintJobStatus", () => {
     );
   });
 
+  test("cancelled job with refunded payment shows cancelled", () => {
+    const mapped = mapPrintJobStatus(
+      job({
+        status: "CANCELLED",
+        payment_status: "REFUNDED",
+        display_status: "AWAITING_PAYMENT",
+        display_label: "Needs payment",
+      })
+    );
+    expect(mapped.status).toBe("CANCELLED");
+    expect(mapped.label).toBe("Cancelled");
+  });
+
   test("scan/history/status page agree on backend payload", () => {
     const apiJob = job({
       display_status: "RECEIVED",

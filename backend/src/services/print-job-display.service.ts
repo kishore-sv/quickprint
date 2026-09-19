@@ -37,13 +37,13 @@ type JobLike = {
 };
 
 export function resolveDisplayStatus(job: JobLike): DisplayStatus {
+  if (job.status === "CANCELLED") return "CANCELLED";
+  if (job.status === "EXPIRED") return "EXPIRED";
   if (job.paymentStatus !== "PAID") {
     return "AWAITING_PAYMENT";
   }
-  if (job.status === "EXPIRED") return "EXPIRED";
   if (job.status === "COMPLETED") return "COMPLETED";
   if (job.status === "FAILED") return "FAILED";
-  if (job.status === "CANCELLED") return "CANCELLED";
 
   const phase = job.piPhase?.toUpperCase() ?? null;
 

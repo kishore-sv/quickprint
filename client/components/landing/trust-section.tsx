@@ -21,8 +21,12 @@ export function TrustSection() {
           and{" "}
           <Link href="/terms" className="text-primary underline-offset-4 hover:underline">
             Terms of Service
-          </Link>{" "}
-          for full details on how we handle your data.
+          </Link>
+          ,{" "}
+          <Link href="/refunds" className="text-primary underline-offset-4 hover:underline">
+            Refunds Policy
+          </Link>
+          , for full details on how we handle your data and payments.
         </p>
       </div>
     </LandingSection>

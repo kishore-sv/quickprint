@@ -654,7 +654,7 @@ export default function PrintPageContent() {
                         {formatFileSize(getDraftDisplaySizeBytes(d))}
                         {d.pageCount > 0
                           ? ` · ${d.pageCount} pages`
-                          : " · Word document — page count after upload"}
+                          : " · Word document - page count after upload"}
                       </p>
                     </CardContent>
                   </Card>
@@ -701,7 +701,7 @@ export default function PrintPageContent() {
         )}
 
         {step === "checkout" && job && (
-          <Card className="relative overflow-hidden">
+          <Card className="relative overflow-hidden m-1">
             {verifyingPayment && (
               <div
                 className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 bg-background/90 px-6 backdrop-blur-[2px]"
@@ -718,12 +718,12 @@ export default function PrintPageContent() {
             <CardContent className="space-y-3 pt-6 text-sm">
               <p className="font-medium">{job.job_number}</p>
               <p>
-                Physical sheets: {job.physical_sheets ?? "—"} · Total: ₹{amountRupees}
+                Physical sheets: {job.physical_sheets ?? "-"} · Total: ₹{amountRupees}
               </p>
               {job.payment_status === "PAID" ? (
                 <div className="space-y-3">
                   <PrintJobStatusChip job={job} />
-                  <p className="text-primary font-medium">Paid — scan the kiosk to print</p>
+                  <p className="text-primary font-medium">Paid - scan the kiosk to print</p>
                   <LinkButton href="/scan" className="w-full">
                     Scan kiosk
                   </LinkButton>

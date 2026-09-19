@@ -12,5 +12,11 @@ export default function sitemap(): MetadataRoute.Sitemap {
     {
       url: `${SITE_URL}/policy`,
     },
+    {
+      url: `${SITE_URL}/refunds`,
+    },
+    {
+      url: `${SITE_URL}/support`,
+    },
   ];
 }

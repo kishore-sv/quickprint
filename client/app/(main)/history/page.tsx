@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { format } from "date-fns";
-import { FileText } from "lucide-react";
+import { ArrowRight, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Empty,
@@ -40,7 +40,7 @@ function HistoryJobSkeleton() {
 }
 
 function formatHistoryDate(iso: string) {
-  return format(new Date(iso), "d MMM, HH:mm");
+  return format(new Date(iso), "d MMM, h:mmaaa");
 }
 
 function formatAmount(paise: number | null) {
@@ -231,6 +231,11 @@ export default function HistoryPage() {
           )}
         </>
       )}
+
+      <div className="bottom-2 mb-4 mt-6 left-0 right-0 flex justify-center bg-muted px-2 p-px rounded w-fit mx-auto items-center">
+        <p className="text-sm text-muted-foreground text-center tracking-tighter">
+          For help, contact <a href="mailto:help@printify.in" className="text-primary hover:underline">help@printify.in</a> or <Link href="/support" className="text-primary hover:underline">visit support page</Link>.</p>
+      </div>
     </div>
   );
 }

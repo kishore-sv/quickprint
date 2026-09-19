@@ -4,7 +4,7 @@ import { LEGAL_CONTACT_EMAIL } from "@/lib/legal-meta";
 export const SITE_URL = "https://quickprint.fun";
 export const SITE_NAME = "QuickPrint";
 
-export const DEFAULT_TITLE = "QuickPrint – Fast Self-Service Printing";
+export const DEFAULT_TITLE = "QuickPrint - Fast Self-Service Printing";
 export const DEFAULT_DESCRIPTION =
   "Upload your document, choose your print settings, pay online, and collect your print from a QuickPrint self-service kiosk.";
 

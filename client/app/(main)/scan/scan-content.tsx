@@ -18,6 +18,7 @@ import { Spinner } from "@/components/ui/spinner";
 import { PrintJobCardSkeleton } from "@/components/print/print-job-card";
 import { apiFetch, apiFetchPublic, ensureGuestSession, fetchPrintJobs } from "@/lib/api";
 import { clearKioskContext, readKioskContext, writeKioskContext } from "@/lib/kiosk-context";
+import { kioskScanErrorMessage } from "@/lib/kiosk-scan-errors";
 import { formatJobAmount, formatJobSummary } from "@/lib/print-job-display";
 import { mapPrintJobStatus } from "@/lib/map-print-job-status";
 import { PrintJobStatusChip } from "@/components/print/print-job-status-chip";
@@ -127,10 +128,8 @@ export default function ScanPage() {
         toast.add({ title: `Connected to ${k.name}`, type: "success" });
         await loadReadyJobs();
       } catch (e) {
-        toast.add({
-          title: e instanceof Error ? e.message : "Could not connect to kiosk",
-          type: "error",
-        });
+        const { title, description } = kioskScanErrorMessage(e);
+        toast.add({ title, description, type: "warning" });
       } finally {
         setKioskLoading(false);
       }

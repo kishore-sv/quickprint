@@ -588,7 +588,7 @@ export function PrintSetupForm({
               </p>
               <Input
                 id="page-range-advanced"
-                placeholder="All pages — or 1-3,5,7-9"
+                placeholder="All pages - or 1-3,5,7-9"
                 value={
                   settings.page_range === "all" ? "" : settings.page_range
                 }
@@ -766,7 +766,7 @@ export function PrintSetupForm({
             </span>
           </AccordionTrigger>
           <AccordionContent className="pb-4 text-sm text-muted-foreground">
-            Presets are coming soon — your current choices apply to this print job.
+            Presets are coming soon - your current choices apply to this print job.
           </AccordionContent>
         </AccordionItem>
       </Accordion>

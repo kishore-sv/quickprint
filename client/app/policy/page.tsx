@@ -71,17 +71,17 @@ export default function PrivacyPolicyPage() {
         <p>QuickPrint supports the following sign-in methods:</p>
         <ul>
           <li>
-            <strong>Email and password</strong> — you provide your name, email address, and a
+            <strong>Email and password</strong> - you provide your name, email address, and a
             password. Passwords are handled by our authentication system; we do not store them in
             plain text in application code.
           </li>
           <li>
-            <strong>Google sign-in</strong> — if enabled, you may authenticate with Google. Google
+            <strong>Google sign-in</strong> - if enabled, you may authenticate with Google. Google
             provides account information such as your name, email address, and profile image URL.
             QuickPrint does not receive or store your Google password.
           </li>
           <li>
-            <strong>Guest access</strong> — you may use limited features without registering. Guest
+            <strong>Guest access</strong> - you may use limited features without registering. Guest
             sessions are still associated with an internal user identifier.
           </li>
         </ul>
@@ -221,24 +221,11 @@ export default function PrivacyPolicyPage() {
         </p>
         <ul>
           <li>
-            <strong>Hosting and infrastructure</strong> — our frontend is deployed on Vercel and our
-            API on a cloud host such as Railway (or an equivalent provider), as configured for the
-            deployment environment.
-          </li>
-          <li>
-            <strong>Database</strong> — Neon PostgreSQL stores account, profile, print-job, payment,
+            <strong>Database</strong> - PostgreSQL stores account, profile, print-job, payment,
             and related application records.
           </li>
           <li>
-            <strong>Object storage</strong> — Supabase Storage (S3-compatible API) stores uploaded
-            documents.
-          </li>
-          <li>
-            <strong>Authentication</strong> — Better Auth provides authentication services; Google
-            processes sign-in when you choose Google authentication.
-          </li>
-          <li>
-            <strong>Payments</strong> — Razorpay processes payments and related payment events.
+            <strong>Payments</strong> - Razorpay processes payments and related payment events.
           </li>
         </ul>
         <p>
@@ -253,24 +240,24 @@ export default function PrivacyPolicyPage() {
         <p>Retention depends on the type of data:</p>
         <ul>
           <li>
-            <strong>Account and profile data</strong> — retained while your account exists. We do not
+            <strong>Account and profile data</strong> - retained while your account exists. We do not
             currently provide an in-app account deletion feature in the codebase.
           </li>
           <li>
-            <strong>Print-job metadata and history</strong> — generally retained to show your print
+            <strong>Print-job metadata and history</strong> - generally retained to show your print
             history and job status even after associated files are deleted.
           </li>
           <li>
-            <strong>Uploaded files</strong> — deleted after successful printing by default; optional
+            <strong>Uploaded files</strong> - deleted after successful printing by default; optional
             30-day retention applies only when that option is enabled; expired saved files may be
             removed by a retention cleanup process.
           </li>
           <li>
-            <strong>Payment records</strong> — retained as needed for transaction records, support,
+            <strong>Payment records</strong> - retained as needed for transaction records, support,
             and legal/accounting requirements.
           </li>
           <li>
-            <strong>Logs</strong> — retained for a limited period according to hosting and
+            <strong>Logs</strong> - retained for a limited period according to hosting and
             operational practices.
           </li>
         </ul>
@@ -337,12 +324,12 @@ export default function PrivacyPolicyPage() {
         <ul>
           <li>
             <strong>Authentication session cookie</strong> (<code>better-auth.session_token</code> on
-            the API domain) — set by Better Auth when you sign in (including email, Google, or guest
+            the API domain) - set by Better Auth when you sign in (including email, Google, or guest
             access). Used to keep you authenticated and to validate API requests. This cookie is
             necessary for account access.
           </li>
           <li>
-            <strong>Theme preference</strong> — if you change light/dark mode, the{" "}
+            <strong>Theme preference</strong> - if you change light/dark mode, the{" "}
             <code>next-themes</code> library may store your preference in a cookie and/or browser
             storage so your choice persists across visits.
           </li>
@@ -364,14 +351,14 @@ export default function PrivacyPolicyPage() {
         </p>
         <ul>
           <li>
-            <strong>Print flow draft</strong> (<code>quickprint.print-flow.v1</code>) — stores your
+            <strong>Print flow draft</strong> (<code>quickprint.print-flow.v1</code>) - stores your
             in-progress print session, such as the current step (upload, settings, or checkout),
             print settings, selected page ranges, references to uploaded file IDs, filenames, and an
             active job ID when checkout has started. This helps you continue printing if you
             navigate within the app during a session.
           </li>
           <li>
-            <strong>Kiosk context</strong> (<code>quickprint.kiosk.v1</code>) — stores the kiosk
+            <strong>Kiosk context</strong> (<code>quickprint.kiosk.v1</code>) - stores the kiosk
             public token and kiosk display name after you scan or select a kiosk, so the app can
             associate your session with that kiosk until you clear it or end the browser session.
           </li>

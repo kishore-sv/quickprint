@@ -115,4 +115,13 @@ describe("print job status consistency (API ↔ all pages)", () => {
     expect(resolveDisplayStatus(row)).not.toBe("QUEUED");
     expect(serializePrintJob(row).display_status).toBe("COMPLETED");
   });
+
+  test("cancelled refunded job shows cancelled, not awaiting payment", () => {
+    const row = jobRow({ status: "CANCELLED", paymentStatus: "REFUNDED" });
+    expect(resolveDisplayStatus(row)).toBe("CANCELLED");
+    const api = serializePrintJob(row);
+    expect(api.display_status).toBe("CANCELLED");
+    expect(api.display_label).toBe("Cancelled");
+    expect(clientLabelFromApi(api)).toBe("Cancelled");
+  });
 });

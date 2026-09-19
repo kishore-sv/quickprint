@@ -51,6 +51,21 @@ async function parseJsonResponse<T>(res: Response): Promise<T> {
   return unwrapSuccess<T>(json);
 }
 
+async function apiErrorFromResponse(res: Response): Promise<ApiError> {
+  let detail = res.statusText;
+  try {
+    const err = (await res.json()) as {
+      detail?: string;
+      code?: string;
+      error?: { code?: string; message?: string };
+    };
+    detail = err.detail ?? err.error?.message ?? detail;
+    return new ApiError(detail, res.status, err.code ?? err.error?.code);
+  } catch {
+    return new ApiError(detail, res.status);
+  }
+}
+
 export async function apiFetch<T>(
   path: string,
   options: RequestInit & { json?: unknown } = {}
@@ -81,19 +96,7 @@ export async function apiFetch<T>(
   });
 
   if (!res.ok) {
-    let detail = res.statusText;
-    try {
-      const err = (await res.json()) as {
-        detail?: string;
-        code?: string;
-        error?: { code?: string; message?: string };
-      };
-      detail = err.detail ?? err.error?.message ?? detail;
-      throw new ApiError(detail, res.status, err.code ?? err.error?.code);
-    } catch (e) {
-      if (e instanceof ApiError) throw e;
-      throw new ApiError(detail, res.status);
-    }
+    throw await apiErrorFromResponse(res);
   }
 
   return parseJsonResponse<T>(res);
@@ -102,7 +105,7 @@ export async function apiFetch<T>(
 export async function apiFetchPublic<T>(path: string): Promise<T> {
   const res = await fetch(`${API_URL}${path}`, { credentials: "include" });
   if (!res.ok) {
-    throw new ApiError("Request failed", res.status);
+    throw await apiErrorFromResponse(res);
   }
   return parseJsonResponse<T>(res);
 }

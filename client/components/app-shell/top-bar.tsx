@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { CircleHelp } from "lucide-react";
 import { QuickPrintLogo } from "@/components/quickprint-logo";
 import { appCallbackUrl, authClient } from "@/lib/auth-client";
 import { useGoogleProfileImage } from "@/lib/use-google-profile-image";
@@ -80,6 +81,11 @@ export function TopBar() {
             </DropdownMenuGroup>
             <DropdownMenuSeparator />
             <ThemeToggleMenuRow />
+            <DropdownMenuSeparator />
+            <DropdownMenuItem nativeButton={false} render={<Link href="/support" />}>
+              <CircleHelp />
+              Help
+            </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem variant="destructive" onClick={() => void handleLogout()}>
               Logout

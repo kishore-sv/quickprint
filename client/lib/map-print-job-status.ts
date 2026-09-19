@@ -22,8 +22,16 @@ type JobWithDisplay = Pick<
  * Uses backend-derived display_* fields as the source of truth.
  */
 export function mapPrintJobStatus(job: JobWithDisplay): MappedPrintJobStatus {
-  const status = job.display_status ?? "QUEUED";
-  const label = job.display_label ?? PRINT_JOB_STATUS_LABELS[status] ?? status;
+  const status =
+    job.status === "CANCELLED"
+      ? "CANCELLED"
+      : job.status === "EXPIRED"
+        ? "EXPIRED"
+        : (job.display_status ?? "QUEUED");
+  const label =
+    job.status === "CANCELLED" || job.status === "EXPIRED"
+      ? PRINT_JOB_STATUS_LABELS[status]
+      : (job.display_label ?? PRINT_JOB_STATUS_LABELS[status] ?? status);
   const message = job.display_message ?? null;
   const isTerminal =
     job.is_terminal ??

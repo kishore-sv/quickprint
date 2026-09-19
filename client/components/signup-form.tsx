@@ -184,8 +184,12 @@ export function SignupForm({
                     By creating an account, you agree to our{" "}
                     <Link className="text-primary underline-offset-4 hover:underline" href="/terms">
                       Terms of Service
-                    </Link>{" "}
-                    and acknowledge our{" "}
+                    </Link>
+                    ,{" "}
+                    <Link className="text-primary underline-offset-4 hover:underline" href="/refunds">
+                      Refunds Policy
+                    </Link>
+                    , and acknowledge our{" "}
                     <Link className="text-primary underline-offset-4 hover:underline" href="/policy">
                       Privacy Policy
                     </Link>

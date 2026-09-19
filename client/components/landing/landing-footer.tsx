@@ -8,6 +8,7 @@ const footerLinks = [
   { href: "#faq", label: "FAQ" },
   { href: "/terms", label: "Terms" },
   { href: "/policy", label: "Privacy" },
+  { href: "/refunds", label: "Refunds" },
 ];
 
 export function LandingFooter() {

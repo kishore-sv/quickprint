@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { LEGAL_EFFECTIVE_DATE, LEGAL_LAST_UPDATED } from "@/lib/legal-meta";
 import { pageMaxWidthClass } from "@/lib/layout";
 import { cn } from "@/lib/utils";
+import { QuickPrintLogo } from "../quickprint-logo";
 
 type TocItem = {
   id: string;
@@ -13,25 +14,25 @@ type TocItem = {
 type LegalPageShellProps = {
   title: string;
   description: string;
-  toc: TocItem[];
+  toc?: TocItem[];
+  showLegalDates?: boolean;
   children: React.ReactNode;
 };
 
-export function LegalPageShell({ title, description, toc, children }: LegalPageShellProps) {
+export function LegalPageShell({
+  title,
+  description,
+  toc = [],
+  showLegalDates = true,
+  children,
+}: LegalPageShellProps) {
   return (
     <div className="min-h-dvh overflow-y-auto bg-muted">
       <header className="border-b bg-background/80 backdrop-blur-sm">
         <div className={cn("flex items-center justify-between px-4 py-4", pageMaxWidthClass, "max-w-3xl")}>
-          <Button
-            variant="ghost"
-            size="sm"
-            nativeButton={false}
-            render={<Link href="/" />}
-            className="h-auto gap-2 p-0 font-medium normal-case tracking-normal hover:bg-transparent"
-          >
-            <Image src="/logo.png" alt="" width={24} height={24} className="size-6 rounded-md" />
-            QuickPrint
-          </Button>
+          <Link href="/">
+          <QuickPrintLogo className="size-6" />
+          </Link>
           <Button variant="outline" size="sm" nativeButton={false} render={<Link href="/sign-in" />}>
             Sign in
           </Button>
@@ -43,9 +44,11 @@ export function LegalPageShell({ title, description, toc, children }: LegalPageS
           <div className="mb-8 border-b pb-6">
             <h1 className="font-heading text-2xl font-semibold tracking-tight md:text-3xl">{title}</h1>
             <p className="mt-2 text-muted-foreground text-sm leading-relaxed">{description}</p>
-            <p className="mt-3 text-muted-foreground text-xs">
-              Effective: {LEGAL_EFFECTIVE_DATE} · Last updated: {LEGAL_LAST_UPDATED}
-            </p>
+            {showLegalDates && (
+              <p className="mt-3 text-muted-foreground text-xs">
+                Effective: {LEGAL_EFFECTIVE_DATE} · Last updated: {LEGAL_LAST_UPDATED}
+              </p>
+            )}
           </div>
 
           {toc.length > 0 && (
@@ -74,6 +77,10 @@ export function LegalPageShell({ title, description, toc, children }: LegalPageS
             <span aria-hidden="true">·</span>
             <Link href="/policy" className="hover:text-foreground hover:underline">
               Privacy Policy
+            </Link>
+            <span aria-hidden="true">·</span>
+            <Link href="/refunds" className="hover:text-foreground hover:underline">
+              Refunds
             </Link>
           </footer>
         </div>

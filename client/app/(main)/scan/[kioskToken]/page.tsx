@@ -5,6 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import { LinkButton } from "@/components/ui/link-button";
 import { Spinner } from "@/components/ui/spinner";
 import { apiFetch, apiFetchPublic, ensureGuestSession } from "@/lib/api";
+import { kioskScanErrorMessage } from "@/lib/kiosk-scan-errors";
 import { pageMaxWidthClass } from "@/lib/layout";
 import type { Kiosk } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -33,8 +34,8 @@ export default function KioskScanLandingPage() {
         if (cancelled) return;
         setKiosk(k);
         router.replace(`/scan?connect=${encodeURIComponent(kioskToken)}`);
-      } catch {
-        if (!cancelled) setError("Kiosk unavailable");
+      } catch (e) {
+        if (!cancelled) setError(kioskScanErrorMessage(e).description);
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -57,9 +58,10 @@ export default function KioskScanLandingPage() {
   if (error || !kiosk) {
     return (
       <div className={cn("flex flex-col gap-4 py-16 text-center", pageMaxWidthClass)}>
-        <h1 className="font-heading text-xl font-semibold">Kiosk unavailable</h1>
+        <h1 className="font-heading text-xl font-semibold">Kiosk not found</h1>
         <p className="text-sm text-muted-foreground">
-          This kiosk link is invalid or inactive. Try scanning the QR again.
+          {error ??
+            "This QR code isn't valid or has expired. Please scan the QR on the printer you're standing at."}
         </p>
       </div>
     );
