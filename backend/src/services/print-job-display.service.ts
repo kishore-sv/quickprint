@@ -21,6 +21,7 @@ export type JobStep = {
   key: JobStepKey;
   done: boolean;
   active?: boolean;
+  failed?: boolean;
 };
 
 type JobLike = {
@@ -154,7 +155,7 @@ export function buildJobSteps(job: JobLike): JobStep[] {
       return {
         key,
         done: index < STEP_ORDER.indexOf("printing"),
-        active: key === "printing",
+        failed: key === "printing",
       };
     }
     if (display === "CANCELLED" || display === "EXPIRED") {

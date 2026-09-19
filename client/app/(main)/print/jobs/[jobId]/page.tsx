@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { CheckCircle2, Circle, CircleCheckBig, Loader } from "lucide-react";
+import { CheckCircle2, Circle, CircleCheckBig, Loader, XCircle } from "lucide-react";
 import { CancelPrintJobDialog } from "@/components/print/cancel-print-job-dialog";
 import { PrintJobStatusChip } from "@/components/print/print-job-status-chip";
 import { Button } from "@/components/ui/button";
@@ -162,12 +162,15 @@ export default function PrintJobStatusPage() {
               className={cn(
                 "flex items-center gap-2.5 text-md",
                 step.done && "text-green-500",
+                step.failed && "font-medium text-destructive",
                 step.active && "font-medium text-foreground",
-                !step.done && !step.active && "text-muted-foreground"
+                !step.done && !step.active && !step.failed && "text-muted-foreground"
               )}
             >
               {step.done ? (
                 <CircleCheckBig className="size-5 shrink-0 text-green-500" aria-hidden />
+              ) : step.failed ? (
+                <XCircle className="size-5 shrink-0 text-destructive" aria-hidden />
               ) : step.active ? (
                 <Loader className="size-5 shrink-0 animate-spin" aria-hidden />
               ) : (

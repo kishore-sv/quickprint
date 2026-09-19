@@ -4,6 +4,7 @@ import { env } from "../config/env";
 import { db } from "../db";
 import { kiosks, printJobs } from "../db/schema";
 import { buildKioskScanUrl } from "../utils/kiosk-scan-url";
+import { applyJobTimeoutIfNeeded } from "./job-timeout.service";
 import { resolveDisplayStatus } from "./print-job-display.service";
 import { getKioskDisplayRegistry } from "../ws/kiosk-display.registry";
 
@@ -98,13 +99,13 @@ export function isKioskDisplayActiveJob(job: JobRow, now = new Date()): boolean 
 export function mapJobToKioskDisplayState(job: JobRow): KioskJobDisplayStatus {
   const phase = job.piPhase?.toUpperCase() ?? null;
 
+  if (job.status === "FAILED" || job.status === "CANCELLED" || phase === "FAILED") {
+    return "FAILED";
+  }
+  if (phase === "COMPLETED" || job.status === "COMPLETED") return "COMPLETED";
   if (phase === "RECEIVED" || phase === "DOWNLOADING") return "RECEIVED";
   if (phase === "READY" || phase === "SUBMITTED") return "PREPARED";
   if (phase === "PRINTING" || job.status === "PRINTING") return "PRINTING";
-  if (phase === "COMPLETED" || job.status === "COMPLETED") return "COMPLETED";
-  if (phase === "FAILED" || job.status === "FAILED" || job.status === "CANCELLED") {
-    return "FAILED";
-  }
 
   const display = resolveDisplayStatus(job);
   switch (display) {
@@ -224,7 +225,10 @@ export function buildDisplayStateFromJob(
 export async function getKioskDisplayState(
   kiosk: typeof kiosks.$inferSelect
 ): Promise<KioskDisplayStateResponse> {
-  const job = await findActiveKioskDisplayJob(kiosk.id);
+  let job = await findActiveKioskDisplayJob(kiosk.id);
+  if (job) {
+    job = await applyJobTimeoutIfNeeded(job);
+  }
   return buildDisplayStateFromJob(kiosk, job);
 }
 

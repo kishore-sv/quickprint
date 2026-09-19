@@ -48,6 +48,7 @@ export type JobStep = {
   key: "payment" | "queued" | "received" | "preparing" | "printing" | "printed";
   done: boolean;
   active?: boolean;
+  failed?: boolean;
 };
 
 export type PrintJobDetail = PrintJob & {

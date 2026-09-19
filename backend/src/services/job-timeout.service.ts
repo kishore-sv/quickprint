@@ -55,5 +55,11 @@ export async function applyJobTimeoutIfNeeded(
     metadata: { reason: "timeout" },
   });
 
+  if (updated?.kioskId) {
+    void import("./kiosk-display.service").then(({ broadcastKioskDisplayUpdate }) =>
+      broadcastKioskDisplayUpdate(updated.kioskId!, updated)
+    );
+  }
+
   return updated ?? job;
 }

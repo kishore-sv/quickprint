@@ -217,6 +217,14 @@ describe("kiosk display state mapping", () => {
     ).toBe("FAILED");
   });
 
+  test("failed status wins over stale printing phase", () => {
+    expect(
+      mapJobToKioskDisplayState(
+        job({ piPhase: "PRINTING", status: "FAILED", failedAt: new Date() })
+      )
+    ).toBe("FAILED");
+  });
+
   test("buildDisplayStateFromJob returns IDLE without job", () => {
     const state = buildDisplayStateFromJob(mockKiosk, null);
     expect(state.state).toBe("IDLE");

@@ -67,10 +67,16 @@ describe("print job display", () => {
     expect(steps.every((s) => s.done)).toBe(true);
   });
 
-  test("failed marks printing as active", () => {
-    const steps = buildJobSteps({ ...baseJob, status: "FAILED", userErrorCode: "PRINT_FAILED" });
+  test("failed marks printing step as failed without active spinner", () => {
+    const steps = buildJobSteps({
+      ...baseJob,
+      status: "FAILED",
+      piPhase: "FAILED",
+      userErrorCode: "PRINT_FAILED",
+    });
     const printing = steps.find((s) => s.key === "printing");
-    expect(printing?.active).toBe(true);
+    expect(printing?.failed).toBe(true);
+    expect(printing?.active).toBeFalsy();
     expect(printing?.done).toBe(false);
   });
 
