@@ -26,6 +26,7 @@ import {
 } from "../services/operational-log.service";
 import { getPrintUsageAnalytics } from "../services/admin/analytics.service";
 import { getAdminSettings, updateAdminPricing } from "../services/admin/settings.service";
+import { getPageSummary } from "../services/admin/page-summaries.service";
 import { NotFoundError } from "../utils/errors";
 
 export const adminRoutes = Router();
@@ -35,6 +36,16 @@ adminRoutes.use(requireAdmin);
 adminRoutes.get("/dashboard", async (_req, res, next) => {
   try {
     ok(res, await getAdminDashboard());
+  } catch (e) {
+    next(e);
+  }
+});
+
+adminRoutes.get("/summaries/:page", async (req, res, next) => {
+  try {
+    const summary = await getPageSummary(req.params.page);
+    if (!summary) throw new NotFoundError("Summary not found");
+    ok(res, summary);
   } catch (e) {
     next(e);
   }
