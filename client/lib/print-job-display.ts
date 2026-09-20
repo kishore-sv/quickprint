@@ -57,3 +57,13 @@ export function formatJobAmount(job: PrintJob): string | null {
   if (job.amount_paise == null) return null;
   return `₹${(job.amount_paise / 100).toFixed(2)}`;
 }
+
+export function getJobDocumentFilenames(job: PrintJob): string[] | undefined {
+  if (job.document_filenames && job.document_filenames.length > 1) {
+    return job.document_filenames;
+  }
+  if ((job.document_count ?? 1) > 1 && job.documents && job.documents.length > 1) {
+    return job.documents.map((doc) => doc.original_filename);
+  }
+  return undefined;
+}

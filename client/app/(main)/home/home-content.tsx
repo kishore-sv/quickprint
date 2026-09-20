@@ -28,6 +28,7 @@ export default function HomePageContent() {
   const [removingId, setRemovingId] = useState<string | null>(null);
   const [sessionDraft, setSessionDraft] = useState<{
     filename: string;
+    filenames: string[];
     pageCount: number;
     documentCount: number;
   } | null>(null);
@@ -63,6 +64,7 @@ export default function HomePageContent() {
         session.drafts.length > 1
           ? `${first.originalFilename} + ${session.drafts.length - 1} more`
           : first.originalFilename,
+      filenames: session.drafts.map((draft) => draft.originalFilename),
       pageCount: totalPages,
       documentCount: session.drafts.length,
     });
@@ -163,6 +165,7 @@ export default function HomePageContent() {
               {sessionDraft && (
                 <DraftSessionCard
                   filename={sessionDraft.filename}
+                  filenames={sessionDraft.filenames}
                   pageCount={sessionDraft.pageCount}
                   documentCount={sessionDraft.documentCount}
                   onRemove={clearSession}

@@ -888,6 +888,12 @@ export default function PrintPageContent() {
             <Card className="shadow-none">
               <CardContent className="space-y-2 p-4 text-sm">
                 <div className="flex justify-between">
+                  <span className="text-muted-foreground">Total files</span>
+                  <span>
+                    {job.document_count ?? job.documents?.length ?? drafts.length}
+                  </span>
+                </div>
+                <div className="flex justify-between">
                   <span className="text-muted-foreground">Total pages</span>
                   <span>{job.total_logical_pages ?? job.page_count}</span>
                 </div>

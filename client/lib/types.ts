@@ -124,6 +124,7 @@ export type PrintJob = {
   kiosk_id: string | null;
   saved_file_id: string | null;
   document_count?: number;
+  document_filenames?: string[];
   total_logical_pages?: number | null;
   bw_physical_sheets?: number | null;
   color_physical_sheets?: number | null;

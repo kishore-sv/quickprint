@@ -1,5 +1,5 @@
 import { randomBytes, randomUUID } from "crypto";
-import { and, asc, desc, eq, isNull, not, notInArray, or } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNull, not, notInArray, or } from "drizzle-orm";
 import { db } from "../db";
 import { printJobDocuments, printJobEvents, printJobs, refunds, savedFiles } from "../db/schema";
 import type { PrintJobStatus } from "../types/enums";
@@ -98,6 +98,7 @@ export type PrintJobListRow = {
     amountPaise: number;
     currency: string;
   } | null;
+  documentFilenames?: string[];
 };
 
 export type ListUserJobsView = "all" | "active" | "ready";
@@ -573,6 +574,30 @@ export async function transitionJob(
   await db.update(printJobs).set({ status: to, ...extra }).where(eq(printJobs.id, jobId));
 }
 
+async function loadDocumentFilenamesForJobs(
+  jobIds: string[]
+): Promise<Map<string, string[]>> {
+  if (jobIds.length === 0) return new Map();
+
+  const rows = await db
+    .select({
+      jobId: printJobDocuments.printJobId,
+      originalFilename: printJobDocuments.originalFilename,
+      sortOrder: printJobDocuments.sortOrder,
+    })
+    .from(printJobDocuments)
+    .where(inArray(printJobDocuments.printJobId, jobIds))
+    .orderBy(asc(printJobDocuments.sortOrder));
+
+  const byJob = new Map<string, string[]>();
+  for (const row of rows) {
+    const list = byJob.get(row.jobId) ?? [];
+    list.push(row.originalFilename);
+    byJob.set(row.jobId, list);
+  }
+  return byJob;
+}
+
 export async function listUserJobs(
   userId: string,
   options: ListUserJobsOptions = {}
@@ -613,7 +638,7 @@ export async function listUserJobs(
 
   const has_more = rows.length > limit;
   const sliced = has_more ? rows.slice(0, limit) : rows;
-  const items: PrintJobListRow[] = sliced.map((row) => ({
+  let items: PrintJobListRow[] = sliced.map((row) => ({
     id: row.id,
     jobNumber: row.jobNumber,
     userId: row.userId,
@@ -660,6 +685,16 @@ export async function listUserJobs(
           }
         : null,
   }));
+
+  const multiJobIds = items.filter((item) => item.documentCount > 1).map((item) => item.id);
+  if (multiJobIds.length > 0) {
+    const filenamesByJob = await loadDocumentFilenamesForJobs(multiJobIds);
+    items = items.map((item) => {
+      const filenames = filenamesByJob.get(item.id);
+      if (!filenames?.length) return item;
+      return { ...item, documentFilenames: filenames };
+    });
+  }
 
   return { items, page, limit, has_more };
 }

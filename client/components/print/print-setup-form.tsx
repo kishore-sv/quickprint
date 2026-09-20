@@ -41,7 +41,7 @@ import {
   renderPdfPageThumbnail,
 } from "@/lib/pdf-page-thumbnails";
 import {
-  estimatePrintPricePaise,
+  estimateJobTotalPaise,
   estimatePrintSeconds,
   filterPagesByPageSet,
   formatPageRange,
@@ -110,6 +110,18 @@ type PrintSetupFormProps = {
 
 function allPagesSet(pageCount: number) {
   return new Set(Array.from({ length: pageCount }, (_, i) => i + 1));
+}
+
+function draftPricingInput(draft: PrintFileDraft) {
+  const { pageCount, selectedPages, settings } = draft;
+  if (pageCount < 1 || selectedPages.size === 0) return null;
+  const effective = filterPagesByPageSet([...selectedPages], settings.page_set);
+  if (effective.length === 0) return null;
+  const pageRange =
+    effective.length === pageCount && settings.page_set === "ALL"
+      ? "all"
+      : formatPageRange(effective, pageCount);
+  return { pageCount, pageRange, settings };
 }
 
 export function PrintSetupForm({
@@ -276,35 +288,30 @@ export function PrintSetupForm({
     setCopies(n);
   };
 
-  const price = useMemo(() => {
-    if (!pricing || pageCount < 1 || selectedPages.size === 0) {
-      return { physicalSheets: 0, pagesInRange: 0, totalPaise: 0 };
+  const jobTotals = useMemo(() => {
+    if (!pricing) {
+      return { physicalSheets: 0, pagesInRange: 0, totalPaise: 0, estSeconds: 0 };
     }
-    const effective = filterPagesByPageSet([...selectedPages], settings.page_set);
-    if (effective.length === 0) {
-      return { physicalSheets: 0, pagesInRange: 0, totalPaise: 0 };
+    const inputs = drafts
+      .map(draftPricingInput)
+      .filter((input): input is NonNullable<typeof input> => input != null);
+    if (inputs.length === 0) {
+      return { physicalSheets: 0, pagesInRange: 0, totalPaise: 0, estSeconds: 0 };
     }
-    const range =
-      effective.length === pageCount && settings.page_set === "ALL"
-        ? "all"
-        : formatPageRange(effective, pageCount);
-    return estimatePrintPricePaise({
-      pageCount,
-      pageRange: range,
-      pagesPerSheet: settings.pages_per_sheet,
-      duplex: settings.duplex,
-      copies: settings.copies,
-      colorMode: settings.color_mode,
-      bwPerSheetPaise: pricing.bw_per_sheet_paise,
-      colorPerSheetPaise: pricing.color_per_sheet_paise,
-      order: settings.order,
-    });
-  }, [pricing, pageCount, selectedPages, settings]);
-
-  const effectivePageCount = useMemo(
-    () => filterPagesByPageSet([...selectedPages], settings.page_set).length,
-    [selectedPages, settings.page_set]
-  );
+    const priced = estimateJobTotalPaise(inputs, pricing);
+    const estSeconds = drafts.reduce((sum, d) => {
+      const input = draftPricingInput(d);
+      if (!input) return sum;
+      const pages = parsePageRange(input.pageRange, input.pageCount).length;
+      return sum + estimatePrintSeconds(pages, d.settings.copies);
+    }, 0);
+    return {
+      physicalSheets: priced.physicalSheets,
+      pagesInRange: priced.logicalPages,
+      totalPaise: priced.totalPaise,
+      estSeconds: Math.max(12, estSeconds),
+    };
+  }, [drafts, pricing]);
 
   const bwRate = pricing?.bw_per_sheet_rupees ?? 2;
   const duplexDisplayRate =
@@ -318,7 +325,7 @@ export function PrintSetupForm({
       : `${selectedPages.size} of ${pageCount} pages`;
 
   const otherFiles = drafts.length - 1;
-  const estSeconds = estimatePrintSeconds(effectivePageCount, settings.copies);
+  const allFilesHavePages = drafts.every((d) => d.selectedPages.size > 0);
 
   if (!draft) return null;
 
@@ -979,17 +986,18 @@ export function PrintSetupForm({
           <div className="min-w-0 flex-1">
             <p className="text-xs text-muted-foreground">Total</p>
             <p className="text-xl font-semibold tabular-nums sm:text-2xl">
-              ₹{formatRupees(price.totalPaise)}
+              ₹{formatRupees(jobTotals.totalPaise)}
             </p>
             <p className="truncate text-[11px] text-muted-foreground sm:text-xs">
-              {price.physicalSheets} sheets · {price.pagesInRange} pages · {estSeconds} sec
+              {jobTotals.physicalSheets} sheets · {jobTotals.pagesInRange} pages ·{" "}
+              {jobTotals.estSeconds} sec
             </p>
           </div>
           <Button
             type="button"
             size="lg"
             className="h-auto shrink-0 rounded-xl px-3 py-2.5 text-sm sm:px-5 sm:py-3 sm:text-base"
-            disabled={submitting || selectedPages.size === 0}
+            disabled={submitting || !allFilesHavePages}
             onClick={onSubmit}
           >
             {submitting ? (

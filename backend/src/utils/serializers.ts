@@ -80,6 +80,12 @@ function basePrintJobFields(job: PrintJobSerializable) {
       "bwPhysicalSheets" in job ? (job as PrintJobListRow).bwPhysicalSheets : null,
     color_physical_sheets:
       "colorPhysicalSheets" in job ? (job as PrintJobListRow).colorPhysicalSheets : null,
+    document_filenames:
+      "documentFilenames" in job &&
+      Array.isArray((job as PrintJobListRow).documentFilenames) &&
+      (job as PrintJobListRow).documentFilenames!.length > 1
+        ? (job as PrintJobListRow).documentFilenames
+        : undefined,
     created_at: job.createdAt,
     paid_at: job.paidAt,
     claimed_at: job.claimedAt,

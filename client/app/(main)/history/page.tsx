@@ -14,9 +14,11 @@ import { LinkButton } from "@/components/ui/link-button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "@/components/ui/toast";
 import { apiFetch } from "@/lib/api";
+import { JobFilenameLabel } from "@/components/print/job-filename-label";
 import { JobRefundStatusChip } from "@/components/print/refund-status-chip";
 import { PrintJobStatusChip } from "@/components/print/print-job-status-chip";
 import { mapPrintJobStatus } from "@/lib/map-print-job-status";
+import { getJobDocumentFilenames } from "@/lib/print-job-display";
 import type { PrintJob, PrintJobListResponse } from "@/lib/types";
 import Link from "next/link";
 
@@ -94,9 +96,12 @@ function HistoryJobCard({ job }: { job: PrintJob }) {
 
         <div className="min-w-0 flex-1">
           <div className="flex items-start justify-between gap-3">
-            <h2 className="min-w-0 flex-1 text-base font-semibold leading-snug break-words">
-              {job.original_filename}
-            </h2>
+            <JobFilenameLabel
+              as="h2"
+              label={job.original_filename}
+              filenames={getJobDocumentFilenames(job)}
+              className="min-w-0 flex-1 text-base font-semibold leading-snug break-words"
+            />
             {amount != null && (
               <p className="shrink-0 text-base font-semibold tabular-nums">₹{amount}</p>
             )}

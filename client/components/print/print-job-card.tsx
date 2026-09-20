@@ -7,9 +7,11 @@ import { Card, CardContent } from "@/components/ui/card";
 import { LinkButton } from "@/components/ui/link-button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { CancelPrintJobDialog } from "@/components/print/cancel-print-job-dialog";
+import { JobFilenameLabel } from "@/components/print/job-filename-label";
 import {
   formatJobAmount,
   formatJobSummary,
+  getJobDocumentFilenames,
   jobAtKiosk,
   jobInQueue,
   jobNeedsPayment,
@@ -61,7 +63,11 @@ export function PrintJobCard({ job, onRemove, onCancelPaid, removing }: PrintJob
           </div>
           <div className="min-w-0 flex-1">
             <div className="flex items-start justify-between gap-2">
-              <p className="truncate font-medium leading-snug">{job.original_filename}</p>
+              <JobFilenameLabel
+                label={job.original_filename}
+                filenames={getJobDocumentFilenames(job)}
+                className="truncate font-medium leading-snug"
+              />
               {inQueue && amount && (
                 <span className="shrink-0 text-sm font-semibold tabular-nums">{amount}</span>
               )}
@@ -156,6 +162,7 @@ export function PrintJobCardSkeleton() {
 
 type DraftSessionCardProps = {
   filename: string;
+  filenames?: string[];
   pageCount: number;
   documentCount?: number;
   onRemove: () => void;
@@ -163,6 +170,7 @@ type DraftSessionCardProps = {
 
 export function DraftSessionCard({
   filename,
+  filenames,
   pageCount,
   documentCount = 1,
   onRemove,
@@ -175,7 +183,11 @@ export function DraftSessionCard({
             <FileText className="size-5" aria-hidden />
           </div>
           <div className="min-w-0 flex-1">
-            <p className="truncate font-medium leading-snug">{filename}</p>
+            <JobFilenameLabel
+              label={filename}
+              filenames={filenames}
+              className="truncate font-medium leading-snug"
+            />
             <p className="mt-0.5 text-sm text-muted-foreground">
               {documentCount > 1
                 ? `${documentCount} documents · ${pageCount} pages`
