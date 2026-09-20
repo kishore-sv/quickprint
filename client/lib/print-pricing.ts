@@ -42,7 +42,8 @@ export function unitPricePaise(params: {
 }): number {
   const base =
     params.colorMode === "BW" ? params.bwPerSheetPaise : params.colorPerSheetPaise;
-  return params.duplex === "DOUBLE" ? Math.round(base * 1.5) : base;
+  if (params.duplex !== "DOUBLE") return base;
+  return params.colorMode === "COLOR" ? base * 2 : Math.round(base * 1.5);
 }
 
 export function estimatePrintPricePaise(params: {

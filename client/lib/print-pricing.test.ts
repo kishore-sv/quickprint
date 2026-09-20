@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { estimatePrintPricePaise, unitPricePaise } from "./print-pricing";
 
-const RATES = { bwPerSheetPaise: 200, colorPerSheetPaise: 300 };
+const RATES = { bwPerSheetPaise: 200, colorPerSheetPaise: 1000 };
 
 describe("print-pricing", () => {
   test("single bw one page", () => {
@@ -42,10 +42,10 @@ describe("print-pricing", () => {
       colorMode: "COLOR",
       ...RATES,
     });
-    expect(est.totalPaise).toBe(300);
+    expect(est.totalPaise).toBe(1000);
   });
 
-  test("duplex color one page uses 1.5x color rate", () => {
+  test("duplex color one page uses 2x color rate", () => {
     const est = estimatePrintPricePaise({
       pageCount: 1,
       pageRange: "all",
@@ -55,7 +55,7 @@ describe("print-pricing", () => {
       colorMode: "COLOR",
       ...RATES,
     });
-    expect(est.totalPaise).toBe(450);
+    expect(est.totalPaise).toBe(2000);
   });
 
   test("unitPricePaise helper", () => {
@@ -72,6 +72,6 @@ describe("print-pricing", () => {
         duplex: "DOUBLE",
         ...RATES,
       })
-    ).toBe(450);
+    ).toBe(2000);
   });
 });

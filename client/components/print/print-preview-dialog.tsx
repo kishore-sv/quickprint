@@ -132,7 +132,7 @@ function PreviewContent({
     settings,
     sheetIndex,
     highQuality: true as const,
-    className: cn(sheetClass, compact && "aspect-auto"),
+    className: sheetClass,
   };
 
   if (hasBack) {

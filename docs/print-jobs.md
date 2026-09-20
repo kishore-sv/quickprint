@@ -45,7 +45,7 @@ After payment, jobs enter `QUEUED` and appear on the Scan page ready queue. If t
 4. Total physical sheets = physical per copy × copies.
 5. Price = physical sheets × rate(color_mode) from `pricing_rules`.
 
-Rates default: B&W ₹2/sheet, Color ₹3/sheet (stored in paise: 200, 300).
+Rates default: B&W ₹2/sheet single / ₹3 double-sided; Color ₹10/sheet single / ₹20 double-sided (stored in paise: 200, 1000; duplex multipliers 1.5× B/W, 2× color).
 
 ## Saved Files
 

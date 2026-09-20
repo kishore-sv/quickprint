@@ -46,6 +46,7 @@ import {
   filterPagesByPageSet,
   formatPageRange,
   formatRupees,
+  unitPricePaise,
   parsePageRange,
 } from "@/lib/print-pricing";
 import type { PricingConfig, PrintSettings, SavedFile } from "@/lib/types";
@@ -168,7 +169,11 @@ export function PrintSetupForm({
       const next: Record<number, string> = {};
       for (let p = 1; p <= pageCount; p++) {
         if (cancelled) return;
-        next[p] = await renderPdfPageThumbnail(draft.file, p, 112);
+        try {
+          next[p] = await renderPdfPageThumbnail(draft.file, p, 112);
+        } catch {
+          /* skip failed thumbnail */
+        }
       }
       if (!cancelled) {
         setThumbnails(next);
@@ -186,34 +191,49 @@ export function PrintSetupForm({
     setPreviewOpen(true);
   }, []);
 
+  const renderPreviewPage = useCallback(
+    async (page: number) => {
+      if (!draft?.file || page < 1 || page > pageCount) return;
+      const narrow = window.innerWidth < 640;
+      const maxCssWidth = Math.floor(window.innerWidth * (narrow ? 0.94 : 0.82));
+      const maxCssHeight = Math.floor(window.innerHeight * (narrow ? 0.68 : 0.78));
+      try {
+        const dataUrl = await renderPdfPagePreview(
+          draft.file,
+          page,
+          maxCssWidth,
+          maxCssHeight
+        );
+        setPreviewImages((prev) =>
+          prev[page] === dataUrl ? prev : { ...prev, [page]: dataUrl }
+        );
+      } catch {
+        /* skip failed page */
+      }
+    },
+    [draft?.file, pageCount]
+  );
+
   useEffect(() => {
     if (!previewOpen || !draft?.file || pageCount < 1) return;
     let cancelled = false;
     setPreviewLoading(true);
     setPreviewImages({});
+
     void (async () => {
-      const narrow = window.innerWidth < 640;
-      const maxCssWidth = Math.floor(window.innerWidth * (narrow ? 0.94 : 0.82));
-      const maxCssHeight = Math.floor(window.innerHeight * (narrow ? 0.68 : 0.78));
-      const next: Record<number, string> = {};
-      for (let p = 1; p <= pageCount; p++) {
-        if (cancelled) return;
-        next[p] = await renderPdfPagePreview(
-          draft.file,
-          p,
-          maxCssWidth,
-          maxCssHeight
-        );
-      }
-      if (!cancelled) {
-        setPreviewImages(next);
-        setPreviewLoading(false);
-      }
+      await renderPreviewPage(previewStartIndex + 1);
+      if (!cancelled) setPreviewLoading(false);
     })();
+
     return () => {
       cancelled = true;
     };
-  }, [previewOpen, draft?.file, pageCount]);
+  }, [previewOpen, draft?.file, pageCount, previewStartIndex, renderPreviewPage]);
+
+  useEffect(() => {
+    if (!previewOpen || previewLoading) return;
+    void renderPreviewPage(carouselPage);
+  }, [previewOpen, previewLoading, carouselPage, renderPreviewPage]);
 
   useEffect(() => {
     if (!carouselApi) return;
@@ -313,11 +333,24 @@ export function PrintSetupForm({
     };
   }, [drafts, pricing]);
 
-  const bwRate = pricing?.bw_per_sheet_rupees ?? 2;
-  const colorRate = pricing?.color_per_sheet_rupees ?? 3;
-  const selectedBaseRate = settings.color_mode === "BW" ? bwRate : colorRate;
-  const singleSideRate = selectedBaseRate;
-  const duplexDisplayRate = selectedBaseRate * 1.5;
+  const bwRatePaise = pricing?.bw_per_sheet_paise ?? 200;
+  const colorRatePaise = pricing?.color_per_sheet_paise ?? 1000;
+  const bwRate = bwRatePaise / 100;
+  const colorRate = colorRatePaise / 100;
+  const singleSideRate =
+    unitPricePaise({
+      colorMode: settings.color_mode,
+      duplex: "SINGLE",
+      bwPerSheetPaise: bwRatePaise,
+      colorPerSheetPaise: colorRatePaise,
+    }) / 100;
+  const duplexDisplayRate =
+    unitPricePaise({
+      colorMode: settings.color_mode,
+      duplex: "DOUBLE",
+      bwPerSheetPaise: bwRatePaise,
+      colorPerSheetPaise: colorRatePaise,
+    }) / 100;
 
   const selectionLabel =
     selectedPages.size === pageCount
@@ -433,7 +466,7 @@ export function PrintSetupForm({
           </span>
         </div>
 
-        <div className="-mx-4 min-w-0 w-auto overflow-x-auto px-4 pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [touch-action:pan-x] [&::-webkit-scrollbar]:hidden">
+        {/* <div className="-mx-4 min-w-0 w-auto overflow-x-auto px-4 pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [touch-action:pan-x] [&::-webkit-scrollbar]:hidden">
           <div className="flex w-max min-w-full gap-3">
           {thumbsLoading &&
             Array.from({ length: Math.min(pageCount, 4) }).map((_, i) => (
@@ -500,7 +533,7 @@ export function PrintSetupForm({
               );
             })}
           </div>
-        </div>
+        </div> */}
       </section>
 
       <section className="min-w-0 space-y-3">
@@ -620,7 +653,7 @@ export function PrintSetupForm({
               {
                 value: "BW" as const,
                 label: "B/W",
-                rate: pricing?.bw_per_sheet_rupees ?? 2,
+                rate: bwRate,
               },
               {
                 value: "COLOR" as const,

@@ -26,7 +26,7 @@ describe("pricing", () => {
       copies: 2,
       colorMode: "BW",
       bwPaise: 200,
-      colorPaise: 300,
+      colorPaise: 1000,
     });
     expect(b.physical_sheets).toBe(20);
     expect(b.total_paise).toBe(4000);
@@ -38,7 +38,7 @@ describe("pricing", () => {
         colorMode: "BW",
         duplex: "DOUBLE",
         bwPaise: 200,
-        colorPaise: 300,
+        colorPaise: 1000,
       })
     ).toBe(300);
   });
@@ -49,9 +49,9 @@ describe("pricing", () => {
         colorMode: "COLOR",
         duplex: "SINGLE",
         bwPaise: 200,
-        colorPaise: 300,
+        colorPaise: 1000,
       })
-    ).toBe(300);
+    ).toBe(1000);
   });
 
   test("price breakdown duplex bw one page", () => {
@@ -63,7 +63,7 @@ describe("pricing", () => {
       copies: 1,
       colorMode: "BW",
       bwPaise: 200,
-      colorPaise: 300,
+      colorPaise: 1000,
     });
     expect(b.physical_sheets).toBe(1);
     expect(b.unit_price_paise).toBe(300);
@@ -79,11 +79,11 @@ describe("pricing", () => {
       copies: 1,
       colorMode: "COLOR",
       bwPaise: 200,
-      colorPaise: 300,
+      colorPaise: 1000,
     });
     expect(b.physical_sheets).toBe(1);
-    expect(b.unit_price_paise).toBe(450);
-    expect(b.total_paise).toBe(450);
+    expect(b.unit_price_paise).toBe(2000);
+    expect(b.total_paise).toBe(2000);
   });
 
   test("validate page range format", () => {

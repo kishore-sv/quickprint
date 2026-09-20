@@ -65,6 +65,7 @@ export function PrintSheetPreview({
   const { cols, rows } = nupGrid(settings.pages_per_sheet);
   const [thumbs, setThumbs] = useState<Record<number, string>>({});
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   const pageKey = pageNumbers.join(",");
 
@@ -72,21 +73,30 @@ export function PrintSheetPreview({
     if (pageNumbers.length === 0) {
       setLoading(false);
       setThumbs({});
+      setError(null);
       return;
     }
     let cancelled = false;
     setLoading(true);
+    setError(null);
     void (async () => {
-      const next: Record<number, string> = {};
-      const renderPage = highQuality ? renderPdfPageForSheet : renderPdfPageThumbnail;
-      const width = highQuality ? 480 : 200;
-      for (const p of pageNumbers) {
-        if (cancelled) return;
-        next[p] = await renderPage(file, p, width);
-      }
-      if (!cancelled) {
-        setThumbs(next);
-        setLoading(false);
+      try {
+        const next: Record<number, string> = {};
+        const renderPage = highQuality ? renderPdfPageForSheet : renderPdfPageThumbnail;
+        const width = highQuality ? 400 : 200;
+        for (const p of pageNumbers) {
+          if (cancelled) return;
+          next[p] = await renderPage(file, p, width);
+        }
+        if (!cancelled) {
+          setThumbs(next);
+          setLoading(false);
+        }
+      } catch (e) {
+        if (!cancelled) {
+          setError(e instanceof Error ? e.message : "Preview failed");
+          setLoading(false);
+        }
       }
     })();
     return () => {
@@ -98,6 +108,14 @@ export function PrintSheetPreview({
     return (
       <div className={cn("flex aspect-[210/297] items-center justify-center bg-muted/30", className)}>
         <span className="text-muted-foreground text-xs">No sheet</span>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className={cn("flex aspect-[210/297] items-center justify-center bg-muted/30 p-3", className)}>
+        <span className="text-center text-muted-foreground text-xs">{error}</span>
       </div>
     );
   }

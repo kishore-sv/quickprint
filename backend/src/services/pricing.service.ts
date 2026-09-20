@@ -28,7 +28,8 @@ export function unitPricePaise(params: {
   colorPaise: number;
 }): number {
   const base = params.colorMode === "BW" ? params.bwPaise : params.colorPaise;
-  return params.duplex === "DOUBLE" ? Math.round(base * 1.5) : base;
+  if (params.duplex !== "DOUBLE") return base;
+  return params.colorMode === "COLOR" ? base * 2 : Math.round(base * 1.5);
 }
 
 export function buildPriceBreakdown(params: {

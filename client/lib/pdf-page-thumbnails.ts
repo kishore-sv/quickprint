@@ -69,13 +69,22 @@ async function renderPageToDataUrl(
   }
   const viewport = page.getViewport({ scale: cssScale });
 
-  const dpr =
+  const MAX_CANVAS_DIM = 4096;
+  let dpr =
     typeof window !== "undefined"
       ? Math.min(window.devicePixelRatio || 1, maxDevicePixelRatio)
       : 1;
+  let canvasW = Math.floor(viewport.width * dpr);
+  let canvasH = Math.floor(viewport.height * dpr);
+  if (canvasW > MAX_CANVAS_DIM || canvasH > MAX_CANVAS_DIM) {
+    const fit = Math.min(MAX_CANVAS_DIM / canvasW, MAX_CANVAS_DIM / canvasH);
+    dpr *= fit;
+    canvasW = Math.floor(viewport.width * dpr);
+    canvasH = Math.floor(viewport.height * dpr);
+  }
   const canvas = document.createElement("canvas");
-  canvas.width = Math.floor(viewport.width * dpr);
-  canvas.height = Math.floor(viewport.height * dpr);
+  canvas.width = canvasW;
+  canvas.height = canvasH;
 
   const ctx = canvas.getContext("2d", { alpha: false });
   if (!ctx) throw new Error("Canvas unavailable");
@@ -116,12 +125,12 @@ export async function renderPdfPagePreview(
   maxCssWidth: number,
   maxCssHeight: number
 ): Promise<string> {
-  const oversample = 2.5;
+  const oversample = 2;
   return renderPageToDataUrl(file, pageNumber, {
     maxCssWidth: maxCssWidth * oversample,
     maxCssHeight: maxCssHeight * oversample,
     format: "image/png",
-    maxDevicePixelRatio: 4,
+    maxDevicePixelRatio: 3,
   });
 }
 
@@ -131,11 +140,10 @@ export async function renderPdfPageForSheet(
   pageNumber: number,
   targetWidth = 560
 ): Promise<string> {
-  const oversample = 2;
   return renderPageToDataUrl(file, pageNumber, {
-    targetWidth: targetWidth * oversample,
+    targetWidth,
     format: "image/png",
-    maxDevicePixelRatio: 4,
+    maxDevicePixelRatio: 3,
   });
 }
 

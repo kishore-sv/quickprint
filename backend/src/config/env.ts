@@ -31,7 +31,7 @@ const envSchema = z.object({
   LIBREOFFICE_BIN: z.string().default("libreoffice"),
   DOCUMENT_CONVERSION_TIMEOUT_MS: z.coerce.number().default(120000),
   DEFAULT_BW_SHEET_PAISE: z.coerce.number().default(200),
-  DEFAULT_COLOR_SHEET_PAISE: z.coerce.number().default(300),
+  DEFAULT_COLOR_SHEET_PAISE: z.coerce.number().default(1000),
   PRESIGNED_URL_EXPIRES: z.coerce.number().default(3600),
   PREVIEW_URL_EXPIRES: z.coerce.number().default(300),
   NODE_ENV: z.enum(["development", "production", "test"]).default("development"),
