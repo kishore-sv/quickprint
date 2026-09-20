@@ -20,6 +20,9 @@ let jobRow = {
   printingStartedAt: new Date(),
   printerJobId: "cups-1",
   lastPiEventAt: new Date(),
+  saveFile: false,
+  cleanupStatus: null,
+  fileRetentionUntil: null,
 };
 
 mock.module("../src/services/kiosk-dispatch.service", () => ({
@@ -92,6 +95,9 @@ describe("retryFailedPrintJob", () => {
       printingStartedAt: new Date(),
       printerJobId: "cups-1",
       lastPiEventAt: new Date(),
+      saveFile: false,
+      cleanupStatus: null,
+      fileRetentionUntil: null,
     };
     enqueueDispatchForKiosk.mockClear();
     broadcastKioskDisplayUpdate.mockClear();
@@ -126,6 +132,12 @@ describe("retryFailedPrintJob", () => {
 
   test("rejects job without kiosk", async () => {
     jobRow = { ...jobRow, kioskId: null };
+    await expect(retryFailedPrintJob("user-1", "job-1")).rejects.toBeInstanceOf(PrintJobError);
+    expect(enqueueDispatchForKiosk).not.toHaveBeenCalled();
+  });
+
+  test("rejects job when file was cleaned up", async () => {
+    jobRow = { ...jobRow, cleanupStatus: "SUCCESS" };
     await expect(retryFailedPrintJob("user-1", "job-1")).rejects.toBeInstanceOf(PrintJobError);
     expect(enqueueDispatchForKiosk).not.toHaveBeenCalled();
   });

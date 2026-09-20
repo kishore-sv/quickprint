@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { format } from "date-fns";
 import { ArrowRight, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -18,10 +19,9 @@ import { JobFilenameLabel } from "@/components/print/job-filename-label";
 import { JobRefundStatusChip } from "@/components/print/refund-status-chip";
 import { PrintJobStatusChip } from "@/components/print/print-job-status-chip";
 import { isRetryableFailedJob, mapPrintJobStatus } from "@/lib/map-print-job-status";
-import { pollPrintJobUntilTerminal } from "@/lib/poll-print-job-until-terminal";
 import { getJobDocumentFilenames } from "@/lib/print-job-display";
 import { retryPrintJob } from "@/lib/retry-print-job";
-import type { PrintJob, PrintJobDetail, PrintJobListResponse } from "@/lib/types";
+import type { PrintJob, PrintJobListResponse } from "@/lib/types";
 import Link from "next/link";
 
 function HistoryJobSkeleton() {
@@ -75,19 +75,6 @@ function daysLeft(until: string | null) {
   if (!until) return null;
   const diff = new Date(until).getTime() - Date.now();
   return Math.max(0, Math.ceil(diff / (86400000)));
-}
-
-function mergePrintJobFromDetail(job: PrintJob, detail: PrintJobDetail): PrintJob {
-  return {
-    ...job,
-    status: detail.status,
-    display_status: detail.display_status,
-    display_label: detail.display_label,
-    display_message: detail.display_message,
-    is_terminal: detail.is_terminal,
-    pi_phase: detail.pi_phase,
-    dispatched_at: detail.dispatched_at,
-  };
 }
 
 function HistoryJobCard({
@@ -181,6 +168,7 @@ function HistoryJobCard({
 const HISTORY_PAGE_SIZE = 20;
 
 export default function HistoryPage() {
+  const router = useRouter();
   const [jobs, setJobs] = useState<PrintJob[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -207,16 +195,9 @@ export default function HistoryPage() {
     setRetryingJobId(jobId);
     void (async () => {
       try {
-        const detail = await retryPrintJob(jobId);
-        setJobs((prev) =>
-          prev.map((j) => (j.id === jobId ? mergePrintJobFromDetail(j, detail) : j))
-        );
+        await retryPrintJob(jobId);
         toast.add({ title: "Print job sent again", type: "success" });
-        await pollPrintJobUntilTerminal(jobId, (updated) => {
-          setJobs((prev) =>
-            prev.map((j) => (j.id === jobId ? mergePrintJobFromDetail(j, updated) : j))
-          );
-        });
+        router.push("/home");
       } catch (e) {
         toast.add({
           title: e instanceof Error ? e.message : "Could not retry print job",

@@ -9,6 +9,7 @@ import {
   jobUpdatedAt,
   resolveDisplayStatus,
 } from "../services/print-job-display.service";
+import { isJobFileInStorage } from "../services/job-file-availability";
 
 type PrintJobSerializable = InferSelectModel<typeof printJobs> | PrintJobListRow;
 
@@ -43,6 +44,8 @@ function basePrintJobFields(job: PrintJobSerializable) {
     lastPiEventAt: hasPhase ? (job as InferSelectModel<typeof printJobs>).lastPiEventAt ?? null : null,
     createdAt: job.createdAt,
   };
+
+  const cleanupStatus = "cleanupStatus" in job ? (job.cleanupStatus ?? null) : null;
 
   return {
     id: job.id,
@@ -95,6 +98,12 @@ function basePrintJobFields(job: PrintJobSerializable) {
     display_label: displayLabel(displayStatus),
     display_message: displayMessage(jobForMessage),
     is_terminal: isTerminalDisplayStatus(displayStatus),
+    cleanup_status: cleanupStatus,
+    file_available: isJobFileInStorage({
+      cleanupStatus,
+      saveFile: job.saveFile,
+      fileRetentionUntil: job.fileRetentionUntil,
+    }),
   };
 }
 

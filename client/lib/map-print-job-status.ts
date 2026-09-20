@@ -86,8 +86,28 @@ export function isCancellableUnpaidJob(job: JobWithDisplay): boolean {
   return mapPrintJobStatus(job).status === "AWAITING_PAYMENT";
 }
 
-export function isRetryableFailedJob(
-  job: Pick<PrintJob, "status" | "payment_status" | "kiosk_id">
+export function isJobFileAvailable(
+  job: Pick<PrintJob, "save_file" | "file_retention_until" | "cleanup_status" | "file_available">
 ): boolean {
-  return job.status === "FAILED" && job.payment_status === "PAID" && Boolean(job.kiosk_id);
+  if (job.file_available !== undefined) return job.file_available;
+  if (job.cleanup_status === "SUCCESS") return false;
+  if (job.save_file) {
+    if (!job.file_retention_until) return false;
+    return new Date(job.file_retention_until).getTime() > Date.now();
+  }
+  return true;
+}
+
+export function isRetryableFailedJob(
+  job: Pick<
+    PrintJob,
+    "status" | "payment_status" | "kiosk_id" | "save_file" | "file_retention_until" | "cleanup_status" | "file_available"
+  >
+): boolean {
+  return (
+    job.status === "FAILED" &&
+    job.payment_status === "PAID" &&
+    Boolean(job.kiosk_id) &&
+    isJobFileAvailable(job)
+  );
 }

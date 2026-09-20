@@ -5,6 +5,7 @@ import { PrintJobEventType } from "../types/enums";
 import { PrintJobError } from "../utils/errors";
 import { broadcastKioskDisplayUpdate } from "./kiosk-display.service";
 import { enqueueDispatchForKiosk } from "./kiosk-dispatch.service";
+import { isJobFileInStorage } from "./job-file-availability";
 import { addEvent, getOwnedJob } from "./print-job.service";
 
 export async function retryFailedPrintJob(userId: string, jobId: string) {
@@ -18,6 +19,15 @@ export async function retryFailedPrintJob(userId: string, jobId: string) {
   }
   if (!job.kioskId) {
     throw new PrintJobError("Job has no kiosk assigned", "JOB_NOT_RETRYABLE");
+  }
+  if (
+    !isJobFileInStorage({
+      cleanupStatus: job.cleanupStatus,
+      saveFile: job.saveFile,
+      fileRetentionUntil: job.fileRetentionUntil,
+    })
+  ) {
+    throw new PrintJobError("Print file is no longer available", "JOB_NOT_RETRYABLE");
   }
 
   const [updated] = await db

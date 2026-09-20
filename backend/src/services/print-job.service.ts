@@ -53,6 +53,7 @@ export const printJobListSelection = {
   totalLogicalPages: printJobs.totalLogicalPages,
   bwPhysicalSheets: printJobs.bwPhysicalSheets,
   colorPhysicalSheets: printJobs.colorPhysicalSheets,
+  cleanupStatus: printJobs.cleanupStatus,
 };
 
 export type PrintJobListRow = {
@@ -99,6 +100,7 @@ export type PrintJobListRow = {
     currency: string;
   } | null;
   documentFilenames?: string[];
+  cleanupStatus: string | null;
 };
 
 export type ListUserJobsView = "all" | "active" | "ready";
@@ -675,6 +677,7 @@ export async function listUserJobs(
     totalLogicalPages: row.totalLogicalPages,
     bwPhysicalSheets: row.bwPhysicalSheets,
     colorPhysicalSheets: row.colorPhysicalSheets,
+    cleanupStatus: row.cleanupStatus ?? null,
     refund:
       row.status === "CANCELLED" && row.refundId
         ? {

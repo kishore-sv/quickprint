@@ -138,6 +138,8 @@ export type PrintJob = {
   display_label?: string;
   display_message?: string | null;
   is_terminal?: boolean;
+  cleanup_status?: string | null;
+  file_available?: boolean;
   refund?: RefundSummary | null;
 };
 
