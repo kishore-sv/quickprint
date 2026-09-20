@@ -85,3 +85,9 @@ export function isCancellablePaidJob(job: JobWithDisplay): boolean {
 export function isCancellableUnpaidJob(job: JobWithDisplay): boolean {
   return mapPrintJobStatus(job).status === "AWAITING_PAYMENT";
 }
+
+export function isRetryableFailedJob(
+  job: Pick<PrintJob, "status" | "payment_status" | "kiosk_id">
+): boolean {
+  return job.status === "FAILED" && job.payment_status === "PAID" && Boolean(job.kiosk_id);
+}

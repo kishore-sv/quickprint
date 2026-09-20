@@ -10,7 +10,8 @@ import { Spinner } from "@/components/ui/spinner";
 import { cancelPrintJob } from "@/lib/cancel-print-job";
 import { pageMaxWidthClass } from "@/lib/layout";
 import { playPrintCompleteSound, printPickupMessage } from "@/lib/print-complete-feedback";
-import { isCancellablePaidJob } from "@/lib/map-print-job-status";
+import { isCancellablePaidJob, isRetryableFailedJob } from "@/lib/map-print-job-status";
+import { retryPrintJob } from "@/lib/retry-print-job";
 import { mapPrintJobStatus, STEP_LABELS } from "@/lib/print-job-status";
 import { usePrintJobPoll } from "@/lib/use-print-job-poll";
 import { cn } from "@/lib/utils";
@@ -20,10 +21,11 @@ export default function PrintJobStatusPage() {
   const params = useParams();
   const router = useRouter();
   const jobId = typeof params.jobId === "string" ? params.jobId : "";
-  const { job, error, loading } = usePrintJobPoll(jobId);
+  const { job, error, loading, resumePolling } = usePrintJobPoll(jobId);
   const completionSoundPlayed = useRef(false);
   const [cancelOpen, setCancelOpen] = useState(false);
   const [cancelling, setCancelling] = useState(false);
+  const [retrying, setRetrying] = useState(false);
 
   const status = job ? mapPrintJobStatus(job).status : null;
 
@@ -63,6 +65,24 @@ export default function PrintJobStatusPage() {
   const isFailed = status === "FAILED";
   const pickupMessage = isSuccess ? printPickupMessage(job) : message;
   const canCancel = isCancellablePaidJob(job);
+  const canRetry = isRetryableFailedJob(job);
+
+  const handleRetry = async () => {
+    setRetrying(true);
+    try {
+      await retryPrintJob(job.id);
+      completionSoundPlayed.current = false;
+      await resumePolling();
+      toast.add({ title: "Print job sent again", type: "success" });
+    } catch (e) {
+      toast.add({
+        title: e instanceof Error ? e.message : "Could not retry print job",
+        type: "error",
+      });
+    } finally {
+      setRetrying(false);
+    }
+  };
 
   const confirmCancel = async () => {
     setCancelling(true);
@@ -184,6 +204,17 @@ export default function PrintJobStatusPage() {
 
       {!terminal && (
         <p className="text-xs text-muted-foreground">Updating automatically…</p>
+      )}
+
+      {canRetry && (
+        <Button
+          type="button"
+          className="w-full"
+          disabled={retrying}
+          onClick={() => void handleRetry()}
+        >
+          {retrying ? "Retrying…" : "Retry"}
+        </Button>
       )}
 
       {canCancel && (

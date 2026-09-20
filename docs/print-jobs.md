@@ -65,6 +65,11 @@ Manual release (`POST /print-jobs/{id}/release`):
 
 - Sets `kiosk_id`, keeps `QUEUED` until dispatch; events `KIOSK_SELECTED`; dispatch adds `PRINT_REQUESTED` and transitions to `CLAIMED`.
 
+Retry (`POST /print-jobs/{id}/retry`):
+
+- Allowed only when `status=FAILED`, `payment_status=PAID`, and `kiosk_id` is set.
+- Resets the job to `QUEUED`, clears failure/dispatch timestamps, re-enqueues dispatch to the same kiosk (no new payment).
+
 See [pi-integration.md](./pi-integration.md).
 
 ## User-facing status (API)

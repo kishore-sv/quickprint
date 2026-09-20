@@ -126,7 +126,7 @@ export const ALLOWED_TRANSITIONS: Record<PrintJobStatus, PrintJobStatus[]> = {
   DOWNLOADING: ["PRINTING", "FAILED", "CANCELLED"],
   PRINTING: ["COMPLETED", "FAILED"],
   COMPLETED: [],
-  FAILED: [],
+  FAILED: ["QUEUED"],
   CANCELLED: [],
   EXPIRED: [],
 };

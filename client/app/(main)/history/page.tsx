@@ -17,9 +17,11 @@ import { apiFetch } from "@/lib/api";
 import { JobFilenameLabel } from "@/components/print/job-filename-label";
 import { JobRefundStatusChip } from "@/components/print/refund-status-chip";
 import { PrintJobStatusChip } from "@/components/print/print-job-status-chip";
-import { mapPrintJobStatus } from "@/lib/map-print-job-status";
+import { isRetryableFailedJob, mapPrintJobStatus } from "@/lib/map-print-job-status";
+import { pollPrintJobUntilTerminal } from "@/lib/poll-print-job-until-terminal";
 import { getJobDocumentFilenames } from "@/lib/print-job-display";
-import type { PrintJob, PrintJobListResponse } from "@/lib/types";
+import { retryPrintJob } from "@/lib/retry-print-job";
+import type { PrintJob, PrintJobDetail, PrintJobListResponse } from "@/lib/types";
 import Link from "next/link";
 
 function HistoryJobSkeleton() {
@@ -75,12 +77,34 @@ function daysLeft(until: string | null) {
   return Math.max(0, Math.ceil(diff / (86400000)));
 }
 
-function HistoryJobCard({ job }: { job: PrintJob }) {
+function mergePrintJobFromDetail(job: PrintJob, detail: PrintJobDetail): PrintJob {
+  return {
+    ...job,
+    status: detail.status,
+    display_status: detail.display_status,
+    display_label: detail.display_label,
+    display_message: detail.display_message,
+    is_terminal: detail.is_terminal,
+    pi_phase: detail.pi_phase,
+    dispatched_at: detail.dispatched_at,
+  };
+}
+
+function HistoryJobCard({
+  job,
+  onRetry,
+  retrying,
+}: {
+  job: PrintJob;
+  onRetry?: () => void;
+  retrying?: boolean;
+}) {
   const savedDays = daysLeft(job.file_retention_until);
   const amount = formatAmount(job.amount_paise);
   const showPrintAgain =
     job.saved_file_id && job.save_file && savedDays !== null && savedDays > 0;
   const isCancelled = mapPrintJobStatus(job).status === "CANCELLED";
+  const canRetry = isRetryableFailedJob(job);
 
   return (
     <article
@@ -125,16 +149,29 @@ function HistoryJobCard({ job }: { job: PrintJob }) {
             )}
           </div>
 
-          {showPrintAgain && (
-            <LinkButton
-              href={`/print?file=${job.saved_file_id}`}
-              variant="outline"
-              size="sm"
-              className="mt-3 w-full sm:w-auto"
-            >
-              Print again
-            </LinkButton>
-          )}
+          <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+            {canRetry && onRetry && (
+              <Button
+                type="button"
+                size="sm"
+                className="w-full sm:w-auto"
+                disabled={retrying}
+                onClick={onRetry}
+              >
+                {retrying ? "Retrying…" : "Retry"}
+              </Button>
+            )}
+            {showPrintAgain && (
+              <LinkButton
+                href={`/print?file=${job.saved_file_id}`}
+                variant="outline"
+                size="sm"
+                className="w-full sm:w-auto"
+              >
+                Print again
+              </LinkButton>
+            )}
+          </div>
         </div>
       </div>
     </article>
@@ -149,6 +186,7 @@ export default function HistoryPage() {
   const [loadingMore, setLoadingMore] = useState(false);
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(false);
+  const [retryingJobId, setRetryingJobId] = useState<string | null>(null);
 
   useEffect(() => {
     setLoading(true);
@@ -164,6 +202,31 @@ export default function HistoryPage() {
       })
       .finally(() => setLoading(false));
   }, []);
+
+  const handleRetry = (jobId: string) => {
+    setRetryingJobId(jobId);
+    void (async () => {
+      try {
+        const detail = await retryPrintJob(jobId);
+        setJobs((prev) =>
+          prev.map((j) => (j.id === jobId ? mergePrintJobFromDetail(j, detail) : j))
+        );
+        toast.add({ title: "Print job sent again", type: "success" });
+        await pollPrintJobUntilTerminal(jobId, (updated) => {
+          setJobs((prev) =>
+            prev.map((j) => (j.id === jobId ? mergePrintJobFromDetail(j, updated) : j))
+          );
+        });
+      } catch (e) {
+        toast.add({
+          title: e instanceof Error ? e.message : "Could not retry print job",
+          type: "error",
+        });
+      } finally {
+        setRetryingJobId(null);
+      }
+    })();
+  };
 
   const loadMore = () => {
     const nextPage = page + 1;
@@ -211,7 +274,11 @@ export default function HistoryPage() {
           <ul className="flex flex-col gap-3">
             {jobs.map((job) => (
               <li key={job.id}>
-                <HistoryJobCard job={job} />
+                <HistoryJobCard
+                  job={job}
+                  onRetry={() => handleRetry(job.id)}
+                  retrying={retryingJobId === job.id}
+                />
               </li>
             ))}
           </ul>
