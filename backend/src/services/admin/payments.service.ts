@@ -48,13 +48,14 @@ export async function listAdminPayments(options: {
 
   const items = await Promise.all(
     sliced.map(async ({ payment, job }) => {
-      const userRes = await pool.query(`SELECT email FROM "user" WHERE id = $1`, [job.userId]);
+      const userRes = await pool.query(`SELECT email, image FROM "user" WHERE id = $1`, [job.userId]);
       return {
         id: payment.id,
         print_job_id: payment.printJobId,
         job_number: job.jobNumber,
         user_id: job.userId,
         user_email: userRes.rows[0]?.email ?? null,
+        user_image: userRes.rows[0]?.image ?? null,
         amount_paise: payment.amountPaise,
         currency: payment.currency,
         razorpay_order_id: payment.razorpayOrderId,
@@ -77,7 +78,7 @@ export async function getAdminPaymentById(id: string) {
     .limit(1);
   if (!row) throw new NotFoundError("Payment not found");
 
-  const userRes = await pool.query(`SELECT email, name FROM "user" WHERE id = $1`, [
+  const userRes = await pool.query(`SELECT email, name, image FROM "user" WHERE id = $1`, [
     row.job.userId,
   ]);
 
@@ -87,6 +88,7 @@ export async function getAdminPaymentById(id: string) {
     job_number: row.job.jobNumber,
     user_id: row.job.userId,
     user_email: userRes.rows[0]?.email ?? null,
+    user_image: userRes.rows[0]?.image ?? null,
     amount_paise: row.payment.amountPaise,
     currency: row.payment.currency,
     razorpay_order_id: row.payment.razorpayOrderId,

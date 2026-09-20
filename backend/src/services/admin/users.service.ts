@@ -20,7 +20,7 @@ export async function listAdminUsers(options: { page?: number; limit?: number; s
   const total = countQuery.rows[0]?.total ?? 0;
 
   const result = await pool.query(
-    `SELECT u.id, u.email, u.name, u."createdAt" as created_at, u.role,
+    `SELECT u.id, u.email, u.name, u.image, u."createdAt" as created_at, u.role,
             p.display_name
      FROM "user" u
      LEFT JOIN profiles p ON p.id = u.id
@@ -45,6 +45,7 @@ export async function listAdminUsers(options: { page?: number; limit?: number; s
         id: userId,
         name: row.name ?? row.display_name ?? null,
         email: row.email,
+        image: row.image ?? null,
         role: row.role ?? "user",
         total_jobs: jobStats?.total_jobs ?? 0,
         total_spent_paise: Number(jobStats?.total_spent ?? 0),
@@ -65,7 +66,7 @@ export async function listAdminUsers(options: { page?: number; limit?: number; s
 
 export async function getAdminUserById(id: string) {
   const userRes = await pool.query(
-    `SELECT u.id, u.email, u.name, u."createdAt" as created_at, u.role,
+    `SELECT u.id, u.email, u.name, u.image, u."createdAt" as created_at, u.role,
             p.display_name
      FROM "user" u
      LEFT JOIN profiles p ON p.id = u.id
@@ -111,6 +112,7 @@ export async function getAdminUserById(id: string) {
       id: row.id,
       name: row.name ?? row.display_name ?? null,
       email: row.email,
+      image: row.image ?? null,
       role: row.role ?? "user",
       created_at: row.created_at,
       total_jobs: jobStats?.total_jobs ?? 0,

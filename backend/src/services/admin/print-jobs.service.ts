@@ -53,16 +53,20 @@ export async function listAdminPrintJobs(options: {
   const kioskRows = await db.select().from(kiosks);
   const kioskMap = new Map(kioskRows.map((k) => [k.id, k]));
 
-  const userEmails = new Map<string, string | null>();
+  const userInfo = new Map<string, { email: string | null; image: string | null }>();
   for (const uid of [...new Set(sliced.map((j) => j.userId))]) {
-    const res = await pool.query(`SELECT email, name FROM "user" WHERE id = $1`, [uid]);
-    userEmails.set(uid, res.rows[0]?.email as string | null);
+    const res = await pool.query(`SELECT email, image FROM "user" WHERE id = $1`, [uid]);
+    userInfo.set(uid, {
+      email: (res.rows[0]?.email as string | null) ?? null,
+      image: (res.rows[0]?.image as string | null) ?? null,
+    });
   }
 
   const items = sliced.map((job) => ({
     ...serializePrintJob(job),
     kiosk_code: job.kioskId ? kioskMap.get(job.kioskId)?.kioskCode ?? null : null,
-    user_email: userEmails.get(job.userId) ?? null,
+    user_email: userInfo.get(job.userId)?.email ?? null,
+    user_image: userInfo.get(job.userId)?.image ?? null,
     completed_at: job.completedAt,
     failed_at: job.failedAt,
   }));
@@ -88,7 +92,7 @@ export async function getAdminPrintJobById(id: string) {
     kiosk = k ?? null;
   }
 
-  const userRes = await pool.query(`SELECT id, email, name FROM "user" WHERE id = $1`, [job.userId]);
+  const userRes = await pool.query(`SELECT id, email, name, image FROM "user" WHERE id = $1`, [job.userId]);
   const user = userRes.rows[0] ?? null;
 
   return {
@@ -104,8 +108,8 @@ export async function getAdminPrintJobById(id: string) {
       dispatched_at: job.dispatchedAt,
     },
     user: user
-      ? { id: user.id, email: user.email, name: user.name }
-      : { id: job.userId, email: null, name: null },
+      ? { id: user.id, email: user.email, name: user.name, image: user.image ?? null }
+      : { id: job.userId, email: null, name: null, image: null },
     kiosk: kiosk
       ? { id: kiosk.id, kiosk_code: kiosk.kioskCode, name: kiosk.name, location: kiosk.location }
       : null,
