@@ -116,6 +116,25 @@ describe("kiosk session invalidation", () => {
     });
   });
 
+  test("DELETE /kiosks/session expires active sessions", async () => {
+    sessionUpdates.length = 0;
+    studentAuthEnabled = true;
+
+    const res = await fetch(`http://127.0.0.1:${port}/kiosks/session`, {
+      method: "DELETE",
+    });
+
+    expect(res.status).toBe(200);
+    const expiredSessionUpdates = sessionUpdates.filter(
+      (u) =>
+        u &&
+        typeof u === "object" &&
+        "expiresAt" in u &&
+        !("lastSeenAt" in u)
+    );
+    expect(expiredSessionUpdates.length).toBe(1);
+  });
+
   test("POST /kiosks/:token/session expires prior sessions before creating a new one", async () => {
     sessionUpdates.length = 0;
     sessionInserts.length = 0;

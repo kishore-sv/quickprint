@@ -4,7 +4,7 @@ import { and, eq, gt } from "drizzle-orm";
 import { db } from "../db";
 import { kioskSessions, kiosks } from "../db/schema";
 import { requireAuth } from "../middleware/auth.middleware";
-import { resolveKiosk } from "../services/kiosk.service";
+import { clearUserKioskSessions, resolveKiosk } from "../services/kiosk.service";
 import { NotFoundError } from "../utils/errors";
 import { paramId } from "../utils/params";
 import { ok } from "../utils/respond";
@@ -89,6 +89,15 @@ kiosksRoutes.get("/kiosks/:token", async (req, res, next) => {
       throw new NotFoundError("Kiosk not found");
     }
     ok(res, serializeKiosk(kiosk));
+  } catch (e) {
+    next(e);
+  }
+});
+
+kiosksRoutes.delete("/kiosks/session", requireAuth, async (req, res, next) => {
+  try {
+    await clearUserKioskSessions(req.auth!.userId);
+    ok(res, { ok: true });
   } catch (e) {
     next(e);
   }

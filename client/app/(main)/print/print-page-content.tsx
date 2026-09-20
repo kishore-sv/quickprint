@@ -28,7 +28,6 @@ import {
 import { apiFetch, apiFetchPublic, uploadFile } from "@/lib/api";
 import { formatFileSize, MAX_UPLOAD_BYTES } from "@/lib/format-file-size";
 import { loadRazorpayScript } from "@/lib/load-razorpay";
-import { readKioskContext } from "@/lib/kiosk-context";
 import { PrintJobStatusChip } from "@/components/print/print-job-status-chip";
 import { imageFileToPdf } from "@/lib/image-to-pdf";
 import { formatPageRange, filterPagesByPageSet, parsePageRange } from "@/lib/print-pricing";
@@ -161,8 +160,6 @@ export default function PrintPageContent() {
   const searchParams = useSearchParams();
   const jobIdFromUrl = searchParams.get("job");
   const fileIdFromUrl = searchParams.get("file");
-  const kioskContext = readKioskContext();
-
   const [step, setStep] = useState<Step>("upload");
   const [drafts, setDrafts] = useState<PrintFileDraft[]>([]);
   const [fileIndex, setFileIndex] = useState(0);
@@ -689,12 +686,7 @@ export default function PrintPageContent() {
             assignJob(updated);
             clearPrintFlowSession();
             activeJobIdRef.current = null;
-            const connectedKiosk = readKioskContext();
-            showSuccess(
-              connectedKiosk
-                ? `Ready to print at ${connectedKiosk.name}`
-                : "Payment successful - scan the kiosk to print"
-            );
+            showSuccess("Payment successful — scan the kiosk QR to print");
             router.push("/scan");
           } catch (err) {
             showError(err instanceof Error ? err.message : "Payment verification failed");
@@ -935,11 +927,9 @@ export default function PrintPageContent() {
                 </div>
               ) : (
                 <>
-                  {kioskContext && (
-                    <p className="text-muted-foreground text-sm">
-                      After payment, confirm print at {kioskContext.name} on the Scan page.
-                    </p>
-                  )}
+                  <p className="text-muted-foreground text-sm">
+                    After payment, scan the kiosk QR on the Scan page to print.
+                  </p>
                   <p className="text-muted-foreground">Status: {job.payment_status}</p>
                   <Button
                     className="w-full"

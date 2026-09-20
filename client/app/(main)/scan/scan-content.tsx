@@ -17,7 +17,7 @@ import {
 import { Spinner } from "@/components/ui/spinner";
 import { PrintJobCardSkeleton } from "@/components/print/print-job-card";
 import { apiFetch, apiFetchPublic, ensureGuestSession, fetchPrintJobs } from "@/lib/api";
-import { clearKioskContext, readKioskContext, writeKioskContext } from "@/lib/kiosk-context";
+import { clearKioskServerSession } from "@/lib/kiosk-session";
 import { kioskScanErrorMessage } from "@/lib/kiosk-scan-errors";
 import { formatJobAmount, formatJobSummary } from "@/lib/print-job-display";
 import { mapPrintJobStatus } from "@/lib/map-print-job-status";
@@ -65,7 +65,6 @@ export default function ScanPage() {
   const scanLock = useRef(false);
   const releaseLock = useRef(false);
   const connectHandledRef = useRef<string | null>(null);
-  const restoreHandledRef = useRef(false);
 
   const loadReadyJobs = useCallback(async () => {
     const { items } = await fetchPrintJobs("?view=ready&limit=20&page=1");
@@ -121,7 +120,6 @@ export default function ScanPage() {
         await apiFetch(`/kiosks/${encodeURIComponent(token)}/session`, {
           method: "POST",
         });
-        writeKioskContext({ publicToken: token, name: k.name });
         setKiosk(k);
         setKioskToken(token);
         await loadKioskServiceStatus(token);
@@ -146,27 +144,10 @@ export default function ScanPage() {
   }, [searchParams, kiosk, router, loadKioskFromScan]);
 
   useEffect(() => {
-    if (kiosk || kioskLoading || restoreHandledRef.current) return;
-    if (searchParams.get("connect")?.trim()) return;
-
-    const ctx = readKioskContext();
-    if (!ctx?.publicToken) return;
-
-    restoreHandledRef.current = true;
-    void (async () => {
-      try {
-        await ensureGuestSession();
-        const k = await apiFetchPublic<Kiosk>(
-          `/kiosks/${encodeURIComponent(ctx.publicToken)}`
-        );
-        setKiosk(k);
-        setKioskToken(ctx.publicToken);
-        await loadKioskServiceStatus(ctx.publicToken);
-      } catch {
-        clearKioskContext();
-      }
-    })();
-  }, [kiosk, kioskLoading, searchParams, loadKioskServiceStatus]);
+    return () => {
+      void clearKioskServerSession();
+    };
+  }, []);
 
   const onQrDetected = (raw: string) => {
     if (kiosk || kioskLoading || scanLock.current) return;
@@ -180,8 +161,8 @@ export default function ScanPage() {
     setKiosk(null);
     setKioskToken(null);
     setServiceOnline(null);
-    clearKioskContext();
     connectHandledRef.current = null;
+    void clearKioskServerSession();
   };
 
   const toggleJob = (jobId: string, checked: boolean) => {
@@ -233,6 +214,11 @@ export default function ScanPage() {
             type: "success",
           });
         }
+        setKiosk(null);
+        setKioskToken(null);
+        setServiceOnline(null);
+        connectHandledRef.current = null;
+        await clearKioskServerSession();
         router.push(`/print/jobs/${firstReleasedId}`);
         return;
       }
@@ -357,7 +343,7 @@ export default function ScanPage() {
               <EmptyTitle>No jobs ready</EmptyTitle>
               <EmptyDescription>
                 {kiosk
-                  ? "Upload and pay for a new job - this kiosk stays connected."
+                  ? "Upload and pay for a new job. Scan the kiosk QR each time you print."
                   : "Paid jobs that are not yet printed will show here."}
               </EmptyDescription>
             </EmptyHeader>

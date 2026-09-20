@@ -314,10 +314,10 @@ export function PrintSetupForm({
   }, [drafts, pricing]);
 
   const bwRate = pricing?.bw_per_sheet_rupees ?? 2;
-  const duplexDisplayRate =
-    pricing != null
-      ? (pricing.bw_per_sheet_paise * 1.5) / 100
-      : 3;
+  const colorRate = pricing?.color_per_sheet_rupees ?? 3;
+  const selectedBaseRate = settings.color_mode === "BW" ? bwRate : colorRate;
+  const singleSideRate = selectedBaseRate;
+  const duplexDisplayRate = selectedBaseRate * 1.5;
 
   const selectionLabel =
     selectedPages.size === pageCount
@@ -581,7 +581,7 @@ export function PrintSetupForm({
         <div className="grid min-w-0 grid-cols-2 gap-2 sm:gap-3">
           {(
             [
-              { value: "SINGLE" as const, label: "Single side", rate: bwRate },
+              { value: "SINGLE" as const, label: "Single side", rate: singleSideRate },
               { value: "DOUBLE" as const, label: "Both sides", rate: duplexDisplayRate },
             ] as const
           ).map((opt) => {
@@ -625,7 +625,7 @@ export function PrintSetupForm({
               {
                 value: "COLOR" as const,
                 label: "Color",
-                rate: pricing?.color_per_sheet_rupees ?? 3,
+                rate: colorRate,
               },
             ] as const
           ).map((opt) => {
@@ -645,7 +645,7 @@ export function PrintSetupForm({
                 <div className="min-w-0">
                   <span className="block text-sm font-semibold">{opt.label}</span>
                   <span className="text-xs text-muted-foreground">
-                    ₹{opt.rate.toFixed(0)}/page
+                    ₹{opt.rate.toFixed(0)}/sheet
                   </span>
                 </div>
                 <ColorModeCircles mode={opt.value} />

@@ -21,6 +21,16 @@ export type PriceBreakdown = {
 
 export { parsePageRange, validatePageRangeFormat };
 
+export function unitPricePaise(params: {
+  colorMode: ColorMode;
+  duplex: DuplexMode;
+  bwPaise: number;
+  colorPaise: number;
+}): number {
+  const base = params.colorMode === "BW" ? params.bwPaise : params.colorPaise;
+  return params.duplex === "DOUBLE" ? Math.round(base * 1.5) : base;
+}
+
 export function buildPriceBreakdown(params: {
   pageCount: number;
   pageRange: string;
@@ -41,7 +51,12 @@ export function buildPriceBreakdown(params: {
     params.copies,
     params.order ?? "NORMAL"
   );
-  const unit = params.colorMode === "BW" ? params.bwPaise : params.colorPaise;
+  const unit = unitPricePaise({
+    colorMode: params.colorMode,
+    duplex: params.duplex,
+    bwPaise: params.bwPaise,
+    colorPaise: params.colorPaise,
+  });
   const pagesInRange = parsePageRange(params.pageRange, params.pageCount).length;
   return {
     pages_in_range: pagesInRange,

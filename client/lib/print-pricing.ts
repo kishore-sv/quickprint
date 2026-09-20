@@ -34,6 +34,17 @@ export function formatPageRange(selected: number[], pageCount: number): string {
   return ranges.join(",");
 }
 
+export function unitPricePaise(params: {
+  colorMode: "BW" | "COLOR";
+  duplex: "SINGLE" | "DOUBLE";
+  bwPerSheetPaise: number;
+  colorPerSheetPaise: number;
+}): number {
+  const base =
+    params.colorMode === "BW" ? params.bwPerSheetPaise : params.colorPerSheetPaise;
+  return params.duplex === "DOUBLE" ? Math.round(base * 1.5) : base;
+}
+
 export function estimatePrintPricePaise(params: {
   pageCount: number;
   pageRange: string;
@@ -54,8 +65,12 @@ export function estimatePrintPricePaise(params: {
     params.copies,
     params.order ?? "NORMAL"
   );
-  const unit =
-    params.colorMode === "BW" ? params.bwPerSheetPaise : params.colorPerSheetPaise;
+  const unit = unitPricePaise({
+    colorMode: params.colorMode,
+    duplex: params.duplex,
+    bwPerSheetPaise: params.bwPerSheetPaise,
+    colorPerSheetPaise: params.colorPerSheetPaise,
+  });
   return {
     pagesInRange: selected.length,
     physicalSheets,

@@ -15,6 +15,14 @@ export async function resolveKiosk(tokenOrCode: string) {
   return kiosk;
 }
 
+export async function clearUserKioskSessions(userId: string) {
+  const now = new Date();
+  await db
+    .update(kioskSessions)
+    .set({ expiresAt: now })
+    .where(and(eq(kioskSessions.userId, userId), gt(kioskSessions.expiresAt, now)));
+}
+
 export async function assertActiveKioskSession(userId: string, kioskId: string) {
   const now = new Date();
   const [session] = await db

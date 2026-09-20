@@ -69,17 +69,27 @@ function FlippingSheet({
   side,
   front,
   back,
+  compact = false,
 }: {
   side: "front" | "back";
   front: React.ReactNode;
   back: React.ReactNode;
+  compact?: boolean;
 }) {
   const flipped = side === "back";
   return (
-    <div className="mx-auto w-full max-w-xs sm:max-w-sm perspective-[900px]">
+    <div
+      className={cn(
+        "mx-auto flex w-full items-center justify-center perspective-[900px]",
+        compact ? "h-full min-h-0 max-h-full" : "max-w-xs sm:max-w-sm"
+      )}
+    >
       <div
         className={cn(
-          "relative aspect-[210/297] transition-transform duration-300 ease-in-out [transform-style:preserve-3d]",
+          "relative transition-transform duration-300 ease-in-out [transform-style:preserve-3d]",
+          compact
+            ? "aspect-[210/297] h-full max-h-full w-auto max-w-full"
+            : "aspect-[210/297] w-full",
           flipped && "[transform:rotateY(180deg)]"
         )}
       >
@@ -88,6 +98,69 @@ function FlippingSheet({
           {back}
         </div>
       </div>
+    </div>
+  );
+}
+
+type PreviewContentProps = {
+  compact?: boolean;
+  hasBack: boolean;
+  side: "front" | "back";
+  sheetClass: string;
+  file: File;
+  pageCount: number;
+  pageRange: string;
+  settings: PrintSettings;
+  sheetIndex: number;
+};
+
+function PreviewContent({
+  compact = false,
+  hasBack,
+  side,
+  sheetClass,
+  file,
+  pageCount,
+  pageRange,
+  settings,
+  sheetIndex,
+}: PreviewContentProps) {
+  const previewProps = {
+    file,
+    pageCount,
+    pageRange,
+    settings,
+    sheetIndex,
+    highQuality: true as const,
+    className: cn(sheetClass, compact && "aspect-auto"),
+  };
+
+  if (hasBack) {
+    return (
+      <FlippingSheet
+        compact={compact}
+        side={side}
+        front={<PrintSheetPreview {...previewProps} side="front" />}
+        back={<PrintSheetPreview {...previewProps} side="back" />}
+      />
+    );
+  }
+
+  return (
+    <div
+      className={cn(
+        "mx-auto flex w-full items-center justify-center",
+        compact ? "h-full min-h-0 max-h-full" : "max-w-xs sm:max-w-sm"
+      )}
+    >
+      <PrintSheetPreview
+        {...previewProps}
+        side="front"
+        className={cn(
+          previewProps.className,
+          compact && "h-full w-auto max-h-full max-w-full"
+        )}
+      />
     </div>
   );
 }
@@ -156,73 +229,39 @@ export function PrintPreviewDialog({
 
   const sheetClass = "h-full w-full rounded-md border border-border/60 shadow-md";
 
-  const body = (
-    <div className="space-y-4">
-      {hasBack && <SideTabs side={side} onSideChange={setSide} />}
-
-      {hasBack ? (
-        <FlippingSheet
-          side={side}
-          front={
-            <PrintSheetPreview
-              file={file}
-              pageCount={pageCount}
-              pageRange={pageRange}
-              settings={settings}
-              sheetIndex={sheetIndex}
-              side="front"
-              highQuality
-              className={sheetClass}
-            />
-          }
-          back={
-            <PrintSheetPreview
-              file={file}
-              pageCount={pageCount}
-              pageRange={pageRange}
-              settings={settings}
-              sheetIndex={sheetIndex}
-              side="back"
-              highQuality
-              className={sheetClass}
-            />
-          }
-        />
-      ) : (
-        <div className="mx-auto w-full max-w-xs sm:max-w-sm">
-          <PrintSheetPreview
-            file={file}
-            pageCount={pageCount}
-            pageRange={pageRange}
-            settings={settings}
-            sheetIndex={sheetIndex}
-            side="front"
-            highQuality
-            className={sheetClass}
-          />
-        </div>
-      )}
-
-      <div className="space-y-1 text-center">
-        <p className="truncate px-4 text-sm font-medium" title={filename}>{filename}</p>
-        <p className="text-muted-foreground text-xs">
-          Sheet {sheetIndex + 1} of {totalSheets}
-          {hasBack ? ` · ${side === "front" ? "Front" : "Back"}` : ""}
-        </p>
-      </div>
-
-      <div className="flex justify-between gap-2">
-        <Button type="button" variant="outline" disabled={!canPrev} onClick={goPrev}>
-          <ChevronLeft className="size-4" />
-          Previous
-        </Button>
-        <Button type="button" disabled={!canNext} onClick={goNext}>
-          Next
-          <ChevronRight className="size-4" />
-        </Button>
-      </div>
+  const metadata = (
+    <div className="space-y-1 text-center">
+      <p className="truncate px-2 text-sm font-medium" title={filename}>{filename}</p>
+      <p className="text-muted-foreground text-xs">
+        Sheet {sheetIndex + 1} of {totalSheets}
+        {hasBack ? ` · ${side === "front" ? "Front" : "Back"}` : ""}
+      </p>
     </div>
   );
+
+  const navigation = (
+    <div className="flex justify-between gap-2">
+      <Button type="button" variant="outline" disabled={!canPrev} onClick={goPrev}>
+        <ChevronLeft className="size-4" />
+        Previous
+      </Button>
+      <Button type="button" disabled={!canNext} onClick={goNext}>
+        Next
+        <ChevronRight className="size-4" />
+      </Button>
+    </div>
+  );
+
+  const previewProps = {
+    hasBack,
+    side,
+    sheetClass,
+    file,
+    pageCount,
+    pageRange,
+    settings,
+    sheetIndex,
+  };
 
   if (isDesktop) {
     return (
@@ -231,7 +270,12 @@ export function PrintPreviewDialog({
           <DialogHeader>
             <DialogTitle>Print preview</DialogTitle>
           </DialogHeader>
-          {body}
+          <div className="space-y-4">
+            {hasBack && <SideTabs side={side} onSideChange={setSide} />}
+            <PreviewContent {...previewProps} />
+            {metadata}
+            {navigation}
+          </div>
         </DialogContent>
       </Dialog>
     );
@@ -239,11 +283,29 @@ export function PrintPreviewDialog({
 
   return (
     <Drawer open={open} onOpenChange={onOpenChange}>
-      <DrawerContent className="px-4 pb-8">
-        <DrawerHeader>
+      <DrawerContent
+        className="flex [--drawer-height:92dvh] max-h-[92dvh] flex-col gap-0 overflow-hidden px-4 pb-[max(1rem,env(safe-area-inset-bottom))]"
+      >
+        <DrawerHeader className="shrink-0 pb-2">
           <DrawerTitle>Print preview</DrawerTitle>
         </DrawerHeader>
-        {body}
+
+        <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-hidden">
+          {hasBack && (
+            <div className="shrink-0">
+              <SideTabs side={side} onSideChange={setSide} />
+            </div>
+          )}
+
+          <div className="flex min-h-0 flex-1 items-center justify-center overflow-hidden py-1">
+            <PreviewContent compact {...previewProps} />
+          </div>
+
+          <div className="shrink-0 space-y-3">
+            {metadata}
+            {navigation}
+          </div>
+        </div>
       </DrawerContent>
     </Drawer>
   );
