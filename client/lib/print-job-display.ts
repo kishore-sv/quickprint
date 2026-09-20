@@ -32,12 +32,25 @@ export function isActiveJob(job: PrintJob): boolean {
   );
 }
 
+function colorModeSummary(job: PrintJob): string {
+  const docCount = job.document_count ?? 1;
+  const hasBw = (job.bw_physical_sheets ?? 0) > 0;
+  const hasColor = (job.color_physical_sheets ?? 0) > 0;
+  if (hasBw && hasColor) return "B&W + Color";
+  if (hasColor || job.color_mode === "COLOR") return "Color";
+  return "B&W";
+}
+
 export function formatJobSummary(job: PrintJob): string {
-  const pages = job.page_count;
-  const pageLabel = `${pages} page${pages === 1 ? "" : "s"}`;
-  const copiesLabel = `${job.copies} copy${job.copies === 1 ? "" : "es"}`;
-  const sides = job.duplex === "DOUBLE" ? "both sides" : "single side";
-  return `${pageLabel} · ${copiesLabel} · ${sides}`;
+  const docCount = job.document_count ?? 1;
+  const pages = job.total_logical_pages ?? job.page_count;
+  const pageLabel = docCount > 1
+    ? `${docCount} documents · ${pages} pages`
+    : `${pages} page${pages === 1 ? "" : "s"}`;
+  const sheets = job.physical_sheets;
+  const sheetsLabel = sheets != null ? ` · ${sheets} sheet${sheets === 1 ? "" : "s"}` : "";
+  const color = colorModeSummary(job);
+  return `${pageLabel}${sheetsLabel} · ${color}`;
 }
 
 export function formatJobAmount(job: PrintJob): string | null {

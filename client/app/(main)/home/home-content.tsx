@@ -29,6 +29,7 @@ export default function HomePageContent() {
   const [sessionDraft, setSessionDraft] = useState<{
     filename: string;
     pageCount: number;
+    documentCount: number;
   } | null>(null);
 
   const loadJobs = useCallback(async () => {
@@ -56,9 +57,14 @@ export default function HomePageContent() {
       return;
     }
     const first = session.drafts[0];
+    const totalPages = session.drafts.reduce((sum, d) => sum + d.pageCount, 0);
     setSessionDraft({
-      filename: first.originalFilename,
-      pageCount: first.pageCount,
+      filename:
+        session.drafts.length > 1
+          ? `${first.originalFilename} + ${session.drafts.length - 1} more`
+          : first.originalFilename,
+      pageCount: totalPages,
+      documentCount: session.drafts.length,
     });
   }, [jobs, loading]);
 
@@ -158,6 +164,7 @@ export default function HomePageContent() {
                 <DraftSessionCard
                   filename={sessionDraft.filename}
                   pageCount={sessionDraft.pageCount}
+                  documentCount={sessionDraft.documentCount}
                   onRemove={clearSession}
                 />
               )}

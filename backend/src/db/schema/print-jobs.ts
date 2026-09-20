@@ -65,6 +65,11 @@ export const printJobs = pgTable(
     userErrorCode: varchar("user_error_code", { length: 64 }),
     cleanupStatus: varchar("cleanup_status", { length: 32 }),
     lastPiEventAt: timestamp("last_pi_event_at", { withTimezone: true }),
+    documentCount: integer("document_count").notNull().default(1),
+    mergedStorageKey: varchar("merged_storage_key", { length: 1024 }),
+    totalLogicalPages: integer("total_logical_pages"),
+    bwPhysicalSheets: integer("bw_physical_sheets"),
+    colorPhysicalSheets: integer("color_physical_sheets"),
   },
   (t) => [
     index("ix_print_jobs_user_id").on(t.userId),

@@ -177,19 +177,11 @@ export default function HistoryPage() {
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex items-center justify-between gap-3">
-        <div className="flex flex-col gap-1">
+      <div className="flex flex-col gap-1">
         <h1 className="font-heading text-2xl font-bold tracking-tight">History</h1>
         <p className="text-sm text-muted-foreground">
           View your print history and manage your print jobs.
         </p>
-        </div>
-        <Link
-          href="/presets"
-          className="h-auto shrink-0 p-0 text-sm font-medium text-primary hover:underline transition-none underline-offset-4"
-        >
-          My Presets
-        </Link>
       </div>
 
       {loading && (

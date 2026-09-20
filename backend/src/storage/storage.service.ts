@@ -5,6 +5,7 @@ import {
   PutObjectCommand,
   S3Client,
 } from "@aws-sdk/client-s3";
+import type { PutObjectCommandInput } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { env } from "../config/env";
 import { StorageError } from "../utils/errors";
@@ -14,6 +15,11 @@ export interface StorageService {
   download(key: string): Promise<Buffer>;
   delete(key: string): Promise<void>;
   getSignedUrl(key: string, expiresIn?: number): Promise<string>;
+  getSignedPutUrl(
+    key: string,
+    contentType: string,
+    expiresIn?: number
+  ): Promise<string>;
   exists(key: string): Promise<boolean>;
 }
 
@@ -71,6 +77,22 @@ class S3StorageService implements StorageService {
     const command = new GetObjectCommand({ Bucket: this.bucket, Key: key });
     return getSignedUrl(this.client, command, {
       expiresIn: expiresIn ?? this.defaultExpires,
+    });
+  }
+
+  async getSignedPutUrl(
+    key: string,
+    contentType: string,
+    expiresIn?: number
+  ): Promise<string> {
+    const input: PutObjectCommandInput = {
+      Bucket: this.bucket,
+      Key: key,
+      ContentType: contentType,
+    };
+    const command = new PutObjectCommand(input);
+    return getSignedUrl(this.client, command, {
+      expiresIn: expiresIn ?? 300,
     });
   }
 

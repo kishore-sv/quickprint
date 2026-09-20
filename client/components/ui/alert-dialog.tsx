@@ -148,7 +148,7 @@ function AlertDialogAction({
   return (
     <Button
       data-slot="alert-dialog-action"
-      className={cn(className)}
+      className={cn(className,"shadow-none")}
       {...props}
     />
   )

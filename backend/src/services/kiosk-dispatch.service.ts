@@ -5,31 +5,14 @@ import { kiosks, printJobs } from "../db/schema";
 import { PrintJobEventType } from "../types/enums";
 import { getStorageService } from "../storage/storage.service";
 import { wsLogger } from "../utils/logger";
-import {
-  buildJobAssignedMessage,
-  buildJobCancelMessage,
-  pageRangeForPiAgent,
-} from "../ws/kiosk-agent.protocol";
+import { buildJobAssignedMessage, buildJobCancelMessage } from "../ws/kiosk-agent.protocol";
 import { getKioskAgentRegistry } from "../ws/kiosk-agent.registry";
 import { buildDispatchClaimWhere } from "./dispatch-claim";
-import { addEvent } from "./print-job.service";
+import { addEvent, getJobDocuments } from "./print-job.service";
+import { ensureMergedPdf } from "./print-composition.service";
 
 /** Throughput hint only — PostgreSQL claim is authoritative for concurrency. */
 const inFlightByKiosk = new Map<string, string>();
-
-function printSettingsForPi(job: typeof printJobs.$inferSelect) {
-  return {
-    copies: job.copies,
-    page_range: pageRangeForPiAgent(job.pageRange),
-    color_mode: job.colorMode.toLowerCase(),
-    paper_size: job.paperSize,
-    duplex: job.duplex === "DOUBLE",
-    pages_per_sheet: job.pagesPerSheet,
-    order: job.order.toLowerCase(),
-    orientation: job.orientation.toLowerCase(),
-    fit_to_page: job.fitToPage,
-  };
-}
 
 export async function findNextDispatchableJob(kioskId: string) {
   const rows = await db
@@ -92,7 +75,18 @@ export async function dispatchJobToKiosk(kioskId: string, jobId: string): Promis
   );
 
   const storage = getStorageService();
-  const fileUrl = await storage.getSignedUrl(job.storageKey, env.PI_JOB_DOWNLOAD_EXPIRES);
+  let storageKey = job.mergedStorageKey ?? job.storageKey;
+  if (!job.mergedStorageKey) {
+    const docs = await getJobDocuments(job.id);
+    if (docs.length > 1) {
+      storageKey = await ensureMergedPdf(job.id, docs, job.mergedStorageKey);
+      await db
+        .update(printJobs)
+        .set({ mergedStorageKey: storageKey })
+        .where(eq(printJobs.id, job.id));
+    }
+  }
+  const fileUrl = await storage.getSignedUrl(storageKey, env.PI_JOB_DOWNLOAD_EXPIRES);
 
   const [fresh] = await db
     .select({ status: printJobs.status })
@@ -113,7 +107,17 @@ export async function dispatchJobToKiosk(kioskId: string, jobId: string): Promis
     job_id: job.id,
     file_url: fileUrl,
     filename: job.originalFilename,
-    print_settings: printSettingsForPi(job),
+    print_settings: {
+      copies: 1,
+      page_range: null,
+      color_mode: "bw",
+      paper_size: "A4",
+      duplex: false,
+      pages_per_sheet: 1,
+      order: "normal",
+      orientation: "auto",
+      fit_to_page: false,
+    },
   });
 
   socket.send(payload);

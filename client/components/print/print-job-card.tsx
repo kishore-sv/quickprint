@@ -157,10 +157,16 @@ export function PrintJobCardSkeleton() {
 type DraftSessionCardProps = {
   filename: string;
   pageCount: number;
+  documentCount?: number;
   onRemove: () => void;
 };
 
-export function DraftSessionCard({ filename, pageCount, onRemove }: DraftSessionCardProps) {
+export function DraftSessionCard({
+  filename,
+  pageCount,
+  documentCount = 1,
+  onRemove,
+}: DraftSessionCardProps) {
   return (
     <Card className="py-0 shadow-none">
       <CardContent className="space-y-3 p-4">
@@ -171,7 +177,10 @@ export function DraftSessionCard({ filename, pageCount, onRemove }: DraftSession
           <div className="min-w-0 flex-1">
             <p className="truncate font-medium leading-snug">{filename}</p>
             <p className="mt-0.5 text-sm text-muted-foreground">
-              {pageCount} page{pageCount === 1 ? "" : "s"} · setup not finished
+              {documentCount > 1
+                ? `${documentCount} documents · ${pageCount} pages`
+                : `${pageCount} page${pageCount === 1 ? "" : "s"}`}
+              {" · setup not finished"}
             </p>
           </div>
         </div>

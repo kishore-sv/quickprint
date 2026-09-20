@@ -9,6 +9,10 @@ import {
 } from "bun:test";
 import { createServer, type Server } from "http";
 import WebSocket from "ws";
+import type { InferSelectModel } from "drizzle-orm";
+import { printJobs } from "../src/db/schema/print-jobs";
+
+type TestPrintJob = InferSelectModel<typeof printJobs>;
 import {
   generateDisplayToken,
   hashDisplayToken,
@@ -67,7 +71,7 @@ const idleDisplayState = {
   updatedAt: new Date().toISOString(),
 };
 
-function job(overrides: Record<string, unknown> = {}) {
+function job(overrides: Record<string, unknown> = {}): TestPrintJob {
   const now = new Date();
   return {
     id: "job-uuid",
@@ -110,8 +114,13 @@ function job(overrides: Record<string, unknown> = {}) {
     userErrorCode: null,
     cleanupStatus: null,
     lastPiEventAt: now,
+    documentCount: 1,
+    mergedStorageKey: null,
+    totalLogicalPages: 1,
+    bwPhysicalSheets: 1,
+    colorPhysicalSheets: 0,
     ...overrides,
-  };
+  } as TestPrintJob;
 }
 
 mock.module("../src/db", () => ({

@@ -1,5 +1,5 @@
 import type { InferSelectModel } from "drizzle-orm";
-import type { kiosks, printJobs, refunds, savedFiles } from "../db/schema";
+import type { kiosks, printJobDocuments, printJobs, refunds, savedFiles } from "../db/schema";
 import type { PrintJobListRow } from "../services/print-job.service";
 import {
   buildJobSteps,
@@ -68,6 +68,18 @@ function basePrintJobFields(job: PrintJobSerializable) {
     file_retention_until: job.fileRetentionUntil,
     kiosk_id: job.kioskId,
     saved_file_id: job.savedFileId,
+    document_count:
+      "documentCount" in job && typeof (job as PrintJobListRow).documentCount === "number"
+        ? (job as PrintJobListRow).documentCount
+        : 1,
+    total_logical_pages:
+      "totalLogicalPages" in job && (job as PrintJobListRow).totalLogicalPages != null
+        ? (job as PrintJobListRow).totalLogicalPages
+        : job.pageCount,
+    bw_physical_sheets:
+      "bwPhysicalSheets" in job ? (job as PrintJobListRow).bwPhysicalSheets : null,
+    color_physical_sheets:
+      "colorPhysicalSheets" in job ? (job as PrintJobListRow).colorPhysicalSheets : null,
     created_at: job.createdAt,
     paid_at: job.paidAt,
     claimed_at: job.claimedAt,
@@ -183,6 +195,31 @@ type SavedFileSerializable = Pick<
   | "retentionUntil"
   | "createdAt"
 >;
+
+export function serializePrintJobDocument(
+  doc: InferSelectModel<typeof printJobDocuments>
+) {
+  return {
+    id: doc.id,
+    sort_order: doc.sortOrder,
+    saved_file_id: doc.savedFileId,
+    original_filename: doc.originalFilename,
+    page_count: doc.pageCount,
+    copies: doc.copies,
+    page_range: doc.pageRange,
+    color_mode: doc.colorMode,
+    paper_size: doc.paperSize,
+    duplex: doc.duplex,
+    pages_per_sheet: doc.pagesPerSheet,
+    order: doc.order,
+    orientation: doc.orientation,
+    fit_to_page: doc.fitToPage,
+    physical_sheets: doc.physicalSheets,
+    pages_in_range: doc.pagesInRange,
+    amount_paise: doc.amountPaise,
+    pricing_snapshot: doc.pricingSnapshot,
+  };
+}
 
 export function serializeSavedFile(
   file: SavedFileSerializable,

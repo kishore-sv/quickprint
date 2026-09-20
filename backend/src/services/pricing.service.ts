@@ -2,7 +2,13 @@ import { eq } from "drizzle-orm";
 import { db } from "../db";
 import { pricingRules } from "../db/schema";
 import type { DuplexMode, ColorMode } from "../types/enums";
-import { ValidationError } from "../utils/errors";
+import {
+  countPhysicalSheets,
+  parsePageRange,
+  validatePageRangeFormat,
+} from "./print-layout.service";
+
+export { countPhysicalSheets };
 
 export type PriceBreakdown = {
   pages_in_range: number;
@@ -13,55 +19,7 @@ export type PriceBreakdown = {
   color_mode: string;
 };
 
-export function parsePageRange(pageRange: string, pageCount: number): number[] {
-  const text = pageRange.trim().toLowerCase();
-  if (text === "" || text === "all" || text === "*") {
-    return Array.from({ length: pageCount }, (_, i) => i + 1);
-  }
-
-  const pages = new Set<number>();
-  for (const part of text.split(",")) {
-    const trimmed = part.trim();
-    if (!trimmed) continue;
-    if (trimmed.includes("-")) {
-      const [startS, endS] = trimmed.split("-", 2);
-      let start = parseInt(startS, 10);
-      let end = parseInt(endS, 10);
-      if (start > end) [start, end] = [end, start];
-      for (let p = start; p <= end; p++) {
-        if (p >= 1 && p <= pageCount) pages.add(p);
-      }
-    } else {
-      const p = parseInt(trimmed, 10);
-      if (p >= 1 && p <= pageCount) pages.add(p);
-    }
-  }
-
-  if (pages.size === 0) throw new ValidationError("Page range selects no valid pages");
-  return [...pages].sort((a, b) => a - b);
-}
-
-export function countPhysicalSheets(
-  pageCount: number,
-  pageRange: string,
-  pagesPerSheet: number,
-  duplex: DuplexMode,
-  copies: number
-): number {
-  if (pagesPerSheet < 1) throw new ValidationError("pages_per_sheet must be >= 1");
-  if (copies < 1) throw new ValidationError("copies must be >= 1");
-
-  const selected = parsePageRange(pageRange, pageCount);
-  const logicalPerCopy = Math.ceil(selected.length / pagesPerSheet);
-  const physicalPerCopy =
-    duplex === "DOUBLE" ? Math.ceil(logicalPerCopy / 2) : logicalPerCopy;
-  return physicalPerCopy * copies;
-}
-
-export function validatePageRangeFormat(pageRange: string): boolean {
-  if (["", "all", "*"].includes(pageRange.trim().toLowerCase())) return true;
-  return /^[\d,\-\s]+$/.test(pageRange.trim());
-}
+export { parsePageRange, validatePageRangeFormat };
 
 export function buildPriceBreakdown(params: {
   pageCount: number;
@@ -73,13 +31,15 @@ export function buildPriceBreakdown(params: {
   bwPaise: number;
   colorPaise: number;
   currency?: string;
+  order?: "NORMAL" | "REVERSE";
 }): PriceBreakdown {
   const physical = countPhysicalSheets(
     params.pageCount,
     params.pageRange,
     params.pagesPerSheet,
     params.duplex,
-    params.copies
+    params.copies,
+    params.order ?? "NORMAL"
   );
   const unit = params.colorMode === "BW" ? params.bwPaise : params.colorPaise;
   const pagesInRange = parsePageRange(params.pageRange, params.pageCount).length;
@@ -90,6 +50,48 @@ export function buildPriceBreakdown(params: {
     total_paise: physical * unit,
     currency: params.currency ?? "INR",
     color_mode: params.colorMode,
+  };
+}
+
+export type AggregatedPriceBreakdown = {
+  total_logical_pages: number;
+  physical_sheets: number;
+  bw_physical_sheets: number;
+  color_physical_sheets: number;
+  total_paise: number;
+  currency: string;
+  documents: PriceBreakdown[];
+};
+
+export function aggregatePriceBreakdowns(
+  breakdowns: PriceBreakdown[],
+  currency = "INR"
+): AggregatedPriceBreakdown {
+  let totalLogical = 0;
+  let physicalSheets = 0;
+  let bwPhysical = 0;
+  let colorPhysical = 0;
+  let totalPaise = 0;
+
+  for (const b of breakdowns) {
+    totalLogical += b.pages_in_range;
+    physicalSheets += b.physical_sheets;
+    totalPaise += b.total_paise;
+    if (b.color_mode === "BW") {
+      bwPhysical += b.physical_sheets;
+    } else {
+      colorPhysical += b.physical_sheets;
+    }
+  }
+
+  return {
+    total_logical_pages: totalLogical,
+    physical_sheets: physicalSheets,
+    bw_physical_sheets: bwPhysical,
+    color_physical_sheets: colorPhysical,
+    total_paise: totalPaise,
+    currency,
+    documents: breakdowns,
   };
 }
 

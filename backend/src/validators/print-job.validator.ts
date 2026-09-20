@@ -13,14 +13,28 @@ export const printSettingsSchema = z.object({
   save_file: z.boolean().default(false),
 });
 
-export const printJobCreateSchema = printSettingsSchema.extend({
+export const printDocumentSchema = printSettingsSchema.extend({
   saved_file_id: z.string().uuid(),
 });
 
-export const printJobUpdateSchema = printSettingsSchema;
+export const printJobCreateSchema = z.object({
+  documents: z.array(printDocumentSchema).min(1).max(20),
+  save_file: z.boolean().optional(),
+});
+
+/** Legacy single-file create */
+export const printJobCreateLegacySchema = printSettingsSchema.extend({
+  saved_file_id: z.string().uuid(),
+});
+
+export const printJobUpdateSchema = z.object({
+  documents: z.array(printDocumentSchema).min(1).max(20),
+  save_file: z.boolean().optional(),
+});
 
 export const printJobReleaseSchema = z.object({
   kiosk_code: z.string().min(1),
 });
 
 export type PrintSettingsInput = z.infer<typeof printSettingsSchema>;
+export type PrintDocumentInput = z.infer<typeof printDocumentSchema>;

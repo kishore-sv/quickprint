@@ -51,6 +51,14 @@ import {
 import type { PricingConfig, PrintSettings, SavedFile } from "@/lib/types";
 import { pageMaxWidthClass } from "@/lib/layout";
 import { cn } from "@/lib/utils";
+import { DocumentPreviewCard } from "@/components/print/document-preview-card";
+import { PrintPreviewDialog } from "@/components/print/print-preview-dialog";
+import {
+  ColorModeCircles,
+  PagesPerSheetLayoutIcon,
+  SidesIcon,
+} from "@/components/print/print-ui-icons";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 
 /** Space above bottom tab bar (matches BottomNav). */
 const BOTTOM_NAV_CLEARANCE =
@@ -60,10 +68,11 @@ const COPY_PRESETS = [1, 2, 5, 10, 25, 50] as const;
 const MAX_COPIES = 100;
 
 const NUP_OPTIONS = [
-  { value: 1, label: "1 (normal)" },
-  { value: 2, label: "2" },
-  { value: 4, label: "4" },
-] as const;
+  { value: 1 as const, label: "1 on 1" },
+  { value: 2 as const, label: "2 on 1" },
+  { value: 4 as const, label: "4 on 1" },
+  { value: 6 as const, label: "6 on 1" },
+];
 
 export type PrintFileDraft = {
   file: File;
@@ -74,6 +83,7 @@ export type PrintFileDraft = {
   pageCount: number;
   savedFile: SavedFile | null;
   selectedPages: Set<number>;
+  settings: PrintSettings;
 };
 
 export function getDraftDisplayName(draft: PrintFileDraft): string {
@@ -102,21 +112,6 @@ function allPagesSet(pageCount: number) {
   return new Set(Array.from({ length: pageCount }, (_, i) => i + 1));
 }
 
-function SidesIcon({ duplex }: { duplex: "SINGLE" | "DOUBLE" }) {
-  return (
-    <div className="flex h-14 w-10 flex-col items-center justify-center gap-0.5 rounded border border-border/80 bg-muted/40 p-1">
-      {duplex === "SINGLE" ? (
-        <div className="h-full w-full rounded-sm bg-background shadow-sm" />
-      ) : (
-        <>
-          <div className="h-[46%] w-full rounded-sm bg-background shadow-sm" />
-          <div className="h-[46%] w-full rounded-sm bg-background shadow-sm" />
-        </>
-      )}
-    </div>
-  );
-}
-
 export function PrintSetupForm({
   drafts,
   fileIndex,
@@ -142,6 +137,7 @@ export function PrintSetupForm({
   const [previewLoading, setPreviewLoading] = useState(false);
   const [carouselPage, setCarouselPage] = useState(1);
   const [carouselApi, setCarouselApi] = useState<CarouselApi>();
+  const [sheetPreviewOpen, setSheetPreviewOpen] = useState(false);
   const [copiesInput, setCopiesInput] = useState(() => String(settings.copies));
   const copiesEditingRef = useRef(false);
 
@@ -298,7 +294,10 @@ export function PrintSetupForm({
       pagesPerSheet: settings.pages_per_sheet,
       duplex: settings.duplex,
       copies: settings.copies,
+      colorMode: settings.color_mode,
       bwPerSheetPaise: pricing.bw_per_sheet_paise,
+      colorPerSheetPaise: pricing.color_per_sheet_paise,
+      order: settings.order,
     });
   }, [pricing, pageCount, selectedPages, settings]);
 
@@ -329,15 +328,56 @@ export function PrintSetupForm({
       className="relative flex w-full min-w-0 max-w-full flex-col gap-5 overflow-x-hidden"
       style={{ paddingBottom: `calc(${BOTTOM_NAV_CLEARANCE} + 5.5rem)` }}
     >
-      <div className="min-w-0 space-y-1">
+      <div className="flex items-center justify-between gap-2">
         <p className="text-sm text-muted-foreground">
           File {fileIndex + 1} of {drafts.length}
         </p>
-        <h1 className="break-all text-xl font-semibold leading-snug tracking-tight">
-          {getDraftDisplayName(draft)}
-        </h1>
-        <p className="text-sm text-muted-foreground">{pageCount} pages</p>
+        <div className="flex gap-1">
+          <Button
+            type="button"
+            variant="outline"
+            size="icon-sm"
+            disabled={fileIndex <= 0}
+            onClick={() => onFileIndexChange(fileIndex - 1)}
+            aria-label="Previous file"
+          >
+            <ChevronLeft className="size-4" />
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            size="icon-sm"
+            disabled={fileIndex >= drafts.length - 1}
+            onClick={() => onFileIndexChange(fileIndex + 1)}
+            aria-label="Next file"
+          >
+            <ChevronRight className="size-4" />
+          </Button>
+        </div>
       </div>
+
+      <DocumentPreviewCard
+        filename={getDraftDisplayName(draft)}
+        pageCount={pageCount}
+        file={draft.file}
+        pageRange={
+          formatPageRange([...selectedPages].sort((a, b) => a - b), pageCount) || "all"
+        }
+        settings={settings}
+        onPreview={() => setSheetPreviewOpen(true)}
+      />
+
+      <PrintPreviewDialog
+        open={sheetPreviewOpen}
+        onOpenChange={setSheetPreviewOpen}
+        filename={getDraftDisplayName(draft)}
+        file={draft.file}
+        pageCount={pageCount}
+        pageRange={
+          formatPageRange([...selectedPages].sort((a, b) => a - b), pageCount) || "all"
+        }
+        settings={settings}
+      />
 
       {otherFiles > 0 && (
         <Accordion className="rounded-xl border bg-card px-3">
@@ -565,10 +605,75 @@ export function PrintSetupForm({
         </p>
       </section>
 
-      <section className="space-y-2">
-        <h2 className="text-base font-semibold">Colour</h2>
-        <div className="rounded-xl border border-primary/20 bg-primary/5 px-3 py-3 text-sm text-primary sm:px-4">
-          Black &amp; white only. Colour printing is unavailable at the moment.
+      <section className="min-w-0 space-y-3">
+        <h2 className="text-base font-semibold">Color mode</h2>
+        <div className="grid min-w-0 grid-cols-2 gap-2 sm:gap-3">
+          {(
+            [
+              {
+                value: "BW" as const,
+                label: "B/W",
+                rate: pricing?.bw_per_sheet_rupees ?? 2,
+              },
+              {
+                value: "COLOR" as const,
+                label: "Color",
+                rate: pricing?.color_per_sheet_rupees ?? 3,
+              },
+            ] as const
+          ).map((opt) => {
+            const selected = settings.color_mode === opt.value;
+            return (
+              <button
+                key={opt.value}
+                type="button"
+                onClick={() => onSettingsChange({ ...settings, color_mode: opt.value })}
+                className={cn(
+                  "flex min-w-0 items-center justify-between gap-2 rounded-xl border-2 px-3 py-3 text-left transition-colors sm:px-4 sm:py-3.5",
+                  selected
+                    ? "border-primary bg-primary/5"
+                    : "border-border bg-card hover:bg-muted/40"
+                )}
+              >
+                <div className="min-w-0">
+                  <span className="block text-sm font-semibold">{opt.label}</span>
+                  <span className="text-xs text-muted-foreground">
+                    ₹{opt.rate.toFixed(0)}/page
+                  </span>
+                </div>
+                <ColorModeCircles mode={opt.value} />
+              </button>
+            );
+          })}
+        </div>
+      </section>
+
+      <section className="min-w-0 space-y-3">
+        <h2 className="text-base font-semibold">Pages per sheet</h2>
+        <div className="grid grid-cols-4 gap-2">
+          {NUP_OPTIONS.map((opt) => {
+            const selected = settings.pages_per_sheet === opt.value;
+            return (
+              <button
+                key={opt.value}
+                type="button"
+                onClick={() =>
+                  onSettingsChange({ ...settings, pages_per_sheet: opt.value })
+                }
+                className={cn(
+                  "flex min-w-0 flex-col overflow-hidden rounded-xl border-2 transition-colors",
+                  selected
+                    ? "border-primary bg-primary/5"
+                    : "border-border bg-card hover:bg-muted/40"
+                )}
+              >
+                <PagesPerSheetLayoutIcon count={opt.value} />
+                <span className="border-t border-border/60 py-2 text-center text-xs font-medium">
+                  {opt.label}
+                </span>
+              </button>
+            );
+          })}
         </div>
       </section>
 
@@ -758,17 +863,6 @@ export function PrintSetupForm({
             </div>
           </AccordionContent>
         </AccordionItem>
-        <AccordionItem value="preset" className="border-0">
-          <AccordionTrigger className="flex-wrap gap-x-2 gap-y-0.5 py-3.5 hover:no-underline [&>svg]:ml-auto">
-            <span className="font-medium">Save as preset</span>
-            <span className="w-full text-xs text-muted-foreground sm:mr-2 sm:w-auto sm:text-right">
-              reuse these settings
-            </span>
-          </AccordionTrigger>
-          <AccordionContent className="pb-4 text-sm text-muted-foreground">
-            Presets are coming soon - your current choices apply to this print job.
-          </AccordionContent>
-        </AccordionItem>
       </Accordion>
 
       {otherFiles > 0 && (
@@ -802,7 +896,7 @@ export function PrintSetupForm({
             "flex flex-col gap-1 overflow-hidden p-2 sm:gap-2",
             "w-[calc(100vw-1rem)] max-w-[calc(100vw-1rem)]",
             "max-sm:top-auto max-sm:right-0 max-sm:bottom-0 max-sm:left-0 max-sm:h-[min(88dvh,100%)] max-sm:max-h-[88dvh] max-sm:translate-x-0 max-sm:translate-y-0 max-sm:rounded-b-none max-sm:rounded-t-2xl",
-            "sm:max-h-[92dvh] sm:w-full sm:max-w-4xl md:max-w-5xl"
+            "sm:max-h-[92dvh] sm:w-full sm:max-w-lg md:max-w-xl"
           )}
         >
           <DialogHeader className="shrink-0 px-1 pr-8">
@@ -831,16 +925,34 @@ export function PrintSetupForm({
                 <CarouselContent className="-ml-2 h-full">
                   {Array.from({ length: pageCount }, (_, i) => i + 1).map((page) => (
                     <CarouselItem key={page} className="h-full pl-2">
-                      <div className="h-full w-full overflow-y-auto overscroll-contain rounded-lg border bg-white [-webkit-overflow-scrolling:touch]">
-                        <div className="flex min-h-full justify-center p-2">
+                      <div
+                        className={cn(
+                          "h-full w-full overflow-y-auto overscroll-contain rounded-lg border bg-white shadow-sm [-webkit-overflow-scrolling:touch]",
+                          "sm:flex sm:items-center sm:justify-center sm:overflow-hidden"
+                        )}
+                      >
+                        <div
+                          className={cn(
+                            "flex min-h-full justify-center p-2",
+                            "sm:h-full sm:min-h-0 sm:w-full sm:items-center sm:p-3"
+                          )}
+                        >
                           {previewImages[page] ? (
                             <img
                               src={previewImages[page]}
                               alt={`Page ${page}`}
-                              className="block h-auto w-full max-w-full object-contain"
+                              className={cn(
+                                "block h-auto w-full max-w-full object-contain",
+                                "sm:mx-auto sm:h-auto sm:max-h-full sm:w-auto sm:max-w-full"
+                              )}
                             />
                           ) : (
-                            <Skeleton className="aspect-[1/1.414] w-full max-w-md" />
+                            <Skeleton
+                              className={cn(
+                                "aspect-[1/1.414] w-full max-w-md",
+                                "sm:max-h-full sm:w-auto"
+                              )}
+                            />
                           )}
                         </div>
                       </div>

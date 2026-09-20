@@ -2,12 +2,23 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { XIcon } from "lucide-react";
+import { Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { LinkButton } from "@/components/ui/link-button";
 import { Spinner } from "@/components/ui/spinner";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { FileDropzone } from "@/components/print/file-dropzone";
+import { JobDocumentsList } from "@/components/print/job-documents-list";
 import {
   getDraftDisplayName,
   getDraftDisplaySizeBytes,
@@ -41,6 +52,7 @@ import type {
   PaymentCreateResponse,
   PricingConfig,
   PrintJob,
+  PrintJobDocument,
   PrintSettings,
   SavedFile,
 } from "@/lib/types";
@@ -97,25 +109,58 @@ function apiPrintSettings(settings: PrintSettings) {
   };
 }
 
-function settingsFromJob(j: PrintJob): Partial<PrintSettings> {
+function draftFileKey(file: File): string {
+  return `${file.name}:${file.size}:${file.lastModified}`;
+}
+
+function documentToSettings(doc: PrintJobDocument): PrintSettings {
   return {
-    copies: j.copies,
-    page_range: j.page_range,
-    color_mode: j.color_mode as PrintSettings["color_mode"],
-    paper_size: j.paper_size as PrintSettings["paper_size"],
-    duplex: j.duplex as PrintSettings["duplex"],
-    pages_per_sheet: j.pages_per_sheet,
-    order: j.order as PrintSettings["order"],
-    orientation: j.orientation as PrintSettings["orientation"],
-    fit_to_page: j.fit_to_page,
-    save_file: j.save_file,
+    copies: doc.copies,
+    page_range: doc.page_range,
+    color_mode: doc.color_mode as PrintSettings["color_mode"],
+    paper_size: doc.paper_size as PrintSettings["paper_size"],
+    duplex: doc.duplex as PrintSettings["duplex"],
+    pages_per_sheet: doc.pages_per_sheet,
+    page_set: "ALL",
+    order: doc.order as PrintSettings["order"],
+    orientation: doc.orientation as PrintSettings["orientation"],
+    quality: "NORMAL",
+    fit_to_page: doc.fit_to_page,
+    collate: true,
+    save_file: false,
   };
+}
+
+async function draftsFromJobDocuments(
+  documents: PrintJobDocument[],
+  saveFile: boolean
+): Promise<PrintFileDraft[]> {
+  const sorted = [...documents].sort((a, b) => a.sort_order - b.sort_order);
+  const result: PrintFileDraft[] = [];
+  for (const doc of sorted) {
+    if (!doc.saved_file_id) continue;
+    const saved = await apiFetch<SavedFile>(`/files/${doc.saved_file_id}`);
+    const file = await fileFromSaved(saved);
+    const pages = parsePageRange(doc.page_range, doc.page_count);
+    const settings = { ...documentToSettings(doc), save_file: saveFile };
+    result.push({
+      file,
+      displayName: saved.original_filename,
+      displaySizeBytes: saved.file_size_bytes,
+      pageCount: doc.page_count,
+      savedFile: saved,
+      selectedPages: new Set(pages.length > 0 ? pages : [...allPages(doc.page_count)]),
+      settings,
+    });
+  }
+  return result;
 }
 
 export default function PrintPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const jobIdFromUrl = searchParams.get("job");
+  const fileIdFromUrl = searchParams.get("file");
   const kioskContext = readKioskContext();
 
   const [step, setStep] = useState<Step>("upload");
@@ -124,8 +169,8 @@ export default function PrintPageContent() {
   const [validating, setValidating] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
-  const [settings, setSettings] = useState<PrintSettings>(defaultSettings);
-  const [applySettingsToAll, setApplySettingsToAll] = useState(true);
+  const [applySettingsToAll, setApplySettingsToAll] = useState(false);
+  const [deleteUploadIndex, setDeleteUploadIndex] = useState<number | null>(null);
   const [pricing, setPricing] = useState<PricingConfig | null>(null);
   const [job, setJob] = useState<PrintJob | null>(null);
   const activeJobIdRef = useRef<string | null>(null);
@@ -162,32 +207,49 @@ export default function PrintPageContent() {
 
   const loadJobFromUrl = useCallback(
     async (jobId: string, preserveStep?: Step) => {
-      const j = await apiFetch<PrintJob>(`/print-jobs/${jobId}`);
+      const j = await apiFetch<PrintJob & { documents?: PrintJobDocument[] }>(
+        `/print-jobs/${jobId}`
+      );
       if (j.payment_status === "PAID") {
         showSuccess("This job is paid - open Scan kiosk to print");
         assignJob(j);
         setStep("checkout");
         return;
       }
-      if (!j.saved_file_id) {
-        throw new Error("Print job has no file");
+      const docs = j.documents ?? [];
+      if (docs.length === 0 && !j.saved_file_id) {
+        throw new Error("Print job has no files");
       }
-      const saved = await apiFetch<SavedFile>(`/files/${j.saved_file_id}`);
-      const file = await fileFromSaved(saved);
-      const pages = parsePageRange(j.page_range, j.page_count);
       skipNextPersist.current = true;
-      setDrafts([
-        {
-          file,
-          displayName: saved.original_filename,
-          displaySizeBytes: saved.file_size_bytes,
-          pageCount: j.page_count,
-          savedFile: saved,
-          selectedPages: new Set(pages.length > 0 ? pages : [...allPages(j.page_count)]),
-        },
-      ]);
+      const restored =
+        docs.length > 0
+          ? await draftsFromJobDocuments(docs, j.save_file)
+          : await draftsFromJobDocuments(
+              [
+                {
+                  id: j.id,
+                  sort_order: 0,
+                  saved_file_id: j.saved_file_id,
+                  original_filename: j.original_filename,
+                  page_count: j.page_count,
+                  copies: j.copies,
+                  page_range: j.page_range,
+                  color_mode: j.color_mode,
+                  paper_size: j.paper_size,
+                  duplex: j.duplex,
+                  pages_per_sheet: j.pages_per_sheet,
+                  order: j.order,
+                  orientation: j.orientation,
+                  fit_to_page: j.fit_to_page,
+                  physical_sheets: j.physical_sheets,
+                  pages_in_range: null,
+                  amount_paise: j.amount_paise,
+                },
+              ],
+              j.save_file
+            );
+      setDrafts(restored);
       setFileIndex(0);
-      setSettings((prev) => ({ ...defaultSettings, ...prev, ...settingsFromJob(j) }));
       assignJob(j);
       syncJobUrl(j.id);
       if (preserveStep) {
@@ -200,6 +262,42 @@ export default function PrintPageContent() {
   );
 
   useEffect(() => {
+    if (fileIdFromUrl && !jobIdFromUrl) {
+      let cancelled = false;
+      setHydrating(true);
+      void (async () => {
+        try {
+          const saved = await apiFetch<SavedFile>(`/files/${fileIdFromUrl}`);
+          const file = await fileFromSaved(saved);
+          const pages = [...allPages(saved.page_count)];
+          if (!cancelled) {
+            skipNextPersist.current = true;
+            setDrafts([
+              {
+                file,
+                displayName: saved.original_filename,
+                displaySizeBytes: saved.file_size_bytes,
+                pageCount: saved.page_count,
+                savedFile: saved,
+                selectedPages: new Set(pages),
+                settings: { ...defaultSettings },
+              },
+            ]);
+            setStep("settings");
+          }
+        } catch (e) {
+          if (!cancelled) {
+            showError(e instanceof Error ? e.message : "Could not open file");
+          }
+        } finally {
+          if (!cancelled) setHydrating(false);
+        }
+      })();
+      return () => {
+        cancelled = true;
+      };
+    }
+
     if (jobIdFromUrl) {
       if (urlHydratedFor.current === jobIdFromUrl && job?.id === jobIdFromUrl) {
         setHydrating(false);
@@ -244,8 +342,7 @@ export default function PrintPageContent() {
         if (cancelled) return;
         skipNextPersist.current = true;
         setDrafts(restoredDrafts);
-        setSettings({ ...defaultSettings, ...saved.settings });
-        setApplySettingsToAll(saved.applySettingsToAll);
+        setApplySettingsToAll(saved.applySettingsToAll ?? false);
         setFileIndex(Math.min(saved.fileIndex, Math.max(0, restoredDrafts.length - 1)));
 
         if (saved.jobId) {
@@ -270,7 +367,7 @@ export default function PrintPageContent() {
     return () => {
       cancelled = true;
     };
-  }, [jobIdFromUrl, loadJobFromUrl, assignJob, clearActiveJob, job?.id]);
+  }, [jobIdFromUrl, fileIdFromUrl, loadJobFromUrl, assignJob, clearActiveJob, job?.id]);
 
   useEffect(() => {
     if (step === "checkout") {
@@ -299,22 +396,13 @@ export default function PrintPageContent() {
       writePrintFlowSession({
         version: 1,
         step,
-        settings,
         applySettingsToAll,
         fileIndex,
         drafts: persistedDrafts,
         jobId,
       });
     }
-  }, [
-    step,
-    settings,
-    applySettingsToAll,
-    fileIndex,
-    drafts,
-    job?.id,
-    hydrating,
-  ]);
+  }, [step, applySettingsToAll, fileIndex, drafts, job?.id, hydrating]);
 
   const clearDrafts = useCallback(() => {
     clearPrintFlowSession();
@@ -336,15 +424,21 @@ export default function PrintPageContent() {
       setValidating(true);
       clearActiveJob();
       urlHydratedFor.current = null;
-      try {
-        const next: PrintFileDraft[] = [];
-        for (const raw of files) {
+      const existingKeys = new Set(drafts.map((d) => draftFileKey(d.file)));
+      const next: PrintFileDraft[] = [];
+      const errors: string[] = [];
+
+      for (const raw of files) {
+        try {
           if (raw.size > MAX_UPLOAD_BYTES) {
             throw new Error(
               `${raw.name} is too large (${formatFileSize(raw.size)}). Maximum size is 50 MB.`
             );
           }
           if (isWordDocument(raw)) {
+            const key = draftFileKey(raw);
+            if (existingKeys.has(key)) continue;
+            existingKeys.add(key);
             next.push({
               file: raw,
               displayName: raw.name,
@@ -352,6 +446,7 @@ export default function PrintPageContent() {
               pageCount: 0,
               savedFile: null,
               selectedPages: new Set(),
+              settings: { ...defaultSettings },
             });
             continue;
           }
@@ -363,6 +458,10 @@ export default function PrintPageContent() {
             throw new Error(getUnsupportedFileMessage());
           }
 
+          const key = draftFileKey(candidate);
+          if (existingKeys.has(key)) continue;
+          existingKeys.add(key);
+
           const { pageCount } = await validatePdfFile(candidate);
           next.push({
             file: candidate,
@@ -371,19 +470,22 @@ export default function PrintPageContent() {
             pageCount,
             savedFile: null,
             selectedPages: allPages(pageCount),
+            settings: { ...defaultSettings },
           });
+        } catch (e) {
+          errors.push(e instanceof Error ? e.message : `${raw.name} is invalid`);
         }
-        setDrafts(next);
-        setFileIndex(0);
-        setSettings((s) => ({ ...s, page_range: "all" }));
-      } catch (e) {
-        clearDrafts();
-        showError(e instanceof Error ? e.message : "Invalid file");
-      } finally {
-        setValidating(false);
       }
+
+      if (next.length > 0) {
+        setDrafts((prev) => [...prev, ...next]);
+      }
+      if (errors.length > 0) {
+        showError(errors[0]!);
+      }
+      setValidating(false);
     },
-    [clearDrafts, clearActiveJob]
+    [drafts, clearActiveJob]
   );
 
   const continueToSettings = async () => {
@@ -406,7 +508,7 @@ export default function PrintPageContent() {
         }
         const saved = await uploadFile(
           fileToUpload,
-          settings.save_file,
+          d.settings.save_file,
           progress,
           d.displayName
         );
@@ -421,6 +523,10 @@ export default function PrintPageContent() {
           savedFile: saved,
           pageCount: saved.page_count,
           selectedPages,
+          settings: {
+            ...d.settings,
+            page_range: formatPageRange([...selectedPages].sort((a, b) => a - b), saved.page_count) || "all",
+          },
         });
       }
       setUploadProgress(100);
@@ -439,80 +545,109 @@ export default function PrintPageContent() {
   const settingsForDraft = (draft: PrintFileDraft): PrintSettings => {
     const filtered = filterPagesByPageSet(
       [...draft.selectedPages].sort((a, b) => a - b),
-      settings.page_set
+      draft.settings.page_set
     );
     const range = formatPageRange(filtered, draft.pageCount);
     return {
-      ...settings,
+      ...draft.settings,
       page_range: range || "all",
     };
   };
+
+  const buildDocumentsPayload = () =>
+    drafts
+      .filter((d) => d.savedFile)
+      .map((draft) => ({
+        saved_file_id: draft.savedFile!.id,
+        ...apiPrintSettings(settingsForDraft(draft)),
+      }));
 
   const submitPrintJobs = async () => {
     if (drafts.length === 0) return;
     setCreatingJob(true);
     try {
-      let lastJob: PrintJob | null = job;
-      let didPatch = false;
-      let didPost = false;
-      let patchedTargetId: string | null = null;
+      const documents = buildDocumentsPayload();
+      if (documents.length === 0) throw new Error("No uploaded files");
 
+      const saveFile = drafts.some((d) => d.settings.save_file);
       const targetJobId = resolveActiveJobId();
+      let result: PrintJob & { documents?: PrintJobDocument[] };
 
-      for (const draft of drafts) {
-        if (!draft.savedFile) continue;
-        const payload = apiPrintSettings(settingsForDraft(draft));
-
-        let shouldPatch =
-          targetJobId != null && patchedTargetId !== targetJobId;
-
-        if (shouldPatch) {
-          let existing = job?.id === targetJobId ? job : null;
-          if (!existing) {
-            existing = await apiFetch<PrintJob>(`/print-jobs/${targetJobId}`);
-          }
-          const fileMatches =
-            drafts.length === 1 ||
-            existing.saved_file_id === draft.savedFile.id;
-          if (existing.payment_status !== "PAID" && fileMatches) {
-            lastJob = await apiFetch<PrintJob>(`/print-jobs/${targetJobId}`, {
-              method: "PATCH",
-              json: payload,
-            });
-            assignJob(lastJob);
-            patchedTargetId = targetJobId;
-            didPatch = true;
-            continue;
-          }
-        }
-
-        lastJob = await apiFetch<PrintJob>("/print-jobs", {
-          method: "POST",
-          json: { saved_file_id: draft.savedFile.id, ...payload },
+      if (targetJobId && job?.payment_status !== "PAID") {
+        result = await apiFetch(`/print-jobs/${targetJobId}`, {
+          method: "PATCH",
+          json: { documents, save_file: saveFile },
         });
-        assignJob(lastJob);
-        syncJobUrl(lastJob.id);
-        didPost = true;
-      }
-
-      if (lastJob) {
-        setStep("checkout");
+        showSuccess("Print job updated");
+      } else {
+        result = await apiFetch("/print-jobs", {
+          method: "POST",
+          json: { documents, save_file: saveFile },
+        });
         showSuccess(
-          didPatch && !didPost
-            ? "Print job updated"
-            : didPatch && didPost
-              ? "Print jobs saved"
-              : drafts.length > 1
-                ? "Print jobs created"
-                : "Print job created"
+          documents.length > 1 ? "Print job created" : "Print job created"
         );
       }
+
+      assignJob(result);
+      syncJobUrl(result.id);
+      setStep("checkout");
     } catch (e) {
       showError(e instanceof Error ? e.message : "Failed to save print job");
     } finally {
       setCreatingJob(false);
     }
   };
+
+  const removeDraftAt = (index: number) => {
+    setDrafts((prev) => {
+      const next = prev.filter((_, i) => i !== index);
+      if (next.length === 0) {
+        clearDrafts();
+        return [];
+      }
+      setFileIndex((fi) => Math.min(fi, next.length - 1));
+      return next;
+    });
+  };
+
+  const deleteJobDocument = async (index: number) => {
+    const targetJobId = resolveActiveJobId();
+    const docId = job?.documents?.[index]?.id;
+    if (targetJobId && job && job.payment_status !== "PAID" && docId) {
+      try {
+        const updated = await apiFetch<PrintJob & { documents?: PrintJobDocument[] }>(
+          `/print-jobs/${targetJobId}/documents/${docId}`,
+          { method: "DELETE" }
+        );
+        assignJob(updated);
+        const restored = await draftsFromJobDocuments(
+          updated.documents ?? [],
+          updated.save_file
+        );
+        setDrafts(restored);
+        setFileIndex(Math.min(fileIndex, Math.max(0, restored.length - 1)));
+        return;
+      } catch (e) {
+        showError(e instanceof Error ? e.message : "Could not delete file");
+        return;
+      }
+    }
+    removeDraftAt(index);
+  };
+
+  const updateDraftSettings = (index: number, settings: PrintSettings) => {
+    setDrafts((prev) =>
+      prev.map((d, i) => {
+        if (applySettingsToAll) {
+          return { ...d, settings };
+        }
+        return i === index ? { ...d, settings } : d;
+      })
+    );
+  };
+
+  const currentSettings = drafts[fileIndex]?.settings ?? defaultSettings;
 
   const pay = async () => {
     if (!job || payBusy || verifyingPayment) return;
@@ -614,7 +749,7 @@ export default function PrintPageContent() {
 
   return (
     <>
-      <div className="flex w-full min-w-0 flex-col gap-6 overflow-x-hidden">
+      <div className="flex w-full min-w-0 flex-col gap-6 overflow-x-hidden px-2 pb-4">
         {step === "upload" && (
           <>
             <div>
@@ -636,19 +771,17 @@ export default function PrintPageContent() {
                 {drafts.map((d, i) => (
                   <Card key={`${getDraftDisplayName(d)}-${i}`} className="relative py-0 shadow-none">
                     <CardContent className="py-3 pl-4 pr-12 text-sm">
-                      {i === 0 && (
-                        <Button
-                          type="button"
-                          variant="secondary"
-                          size="icon-sm"
-                          className="absolute right-2 top-2 size-7 rounded-full shadow-sm"
-                          onClick={clearDrafts}
-                          disabled={busy}
-                          aria-label="Remove files"
-                        >
-                          <XIcon className="size-3.5" />
-                        </Button>
-                      )}
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        size="icon-sm"
+                        className="absolute right-2 top-2 size-7 rounded-full shadow-sm text-destructive"
+                        onClick={() => setDeleteUploadIndex(i)}
+                        disabled={busy}
+                        aria-label={`Remove ${getDraftDisplayName(d)}`}
+                      >
+                        <Trash2 className="size-3.5" />
+                      </Button>
                       <p className="font-medium truncate pr-1">{getDraftDisplayName(d)}</p>
                       <p className="text-muted-foreground">
                         {formatFileSize(getDraftDisplaySizeBytes(d))}
@@ -661,6 +794,32 @@ export default function PrintPageContent() {
                 ))}
               </div>
             )}
+
+            <AlertDialog
+              open={deleteUploadIndex != null}
+              onOpenChange={(open) => !open && setDeleteUploadIndex(null)}
+            >
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Delete this file?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    This file will be removed from this print job.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction
+                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                    onClick={() => {
+                      if (deleteUploadIndex != null) removeDraftAt(deleteUploadIndex);
+                      setDeleteUploadIndex(null);
+                    }}
+                  >
+                    Delete
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
 
             <Button
               size="lg"
@@ -690,8 +849,8 @@ export default function PrintPageContent() {
                 prev.map((d, i) => (i === index ? { ...d, selectedPages: pages } : d))
               );
             }}
-            settings={settings}
-            onSettingsChange={setSettings}
+            settings={currentSettings}
+            onSettingsChange={(s) => updateDraftSettings(fileIndex, s)}
             applySettingsToAll={applySettingsToAll}
             onApplySettingsToAllChange={setApplySettingsToAll}
             pricing={pricing}
@@ -701,10 +860,10 @@ export default function PrintPageContent() {
         )}
 
         {step === "checkout" && job && (
-          <Card className="relative overflow-hidden m-1">
+          <div className="relative space-y-4">
             {verifyingPayment && (
               <div
-                className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 bg-background/90 px-6 backdrop-blur-[2px]"
+                className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 bg-background/90 px-6 backdrop-blur-[2px] rounded-xl"
                 role="status"
                 aria-live="polite"
               >
@@ -715,11 +874,48 @@ export default function PrintPageContent() {
                 </p>
               </div>
             )}
-            <CardContent className="space-y-3 pt-6 text-sm">
-              <p className="font-medium">{job.job_number}</p>
-              <p>
-                Physical sheets: {job.physical_sheets ?? "-"} · Total: ₹{amountRupees}
-              </p>
+            <div className="space-y-1">
+              <h1 className="text-xl font-semibold">{job.job_number}</h1>
+              <p className="text-muted-foreground text-sm">Uploaded files</p>
+            </div>
+
+            <JobDocumentsList
+              drafts={drafts}
+              canDelete={job.payment_status !== "PAID"}
+              onDelete={(i) => void deleteJobDocument(i)}
+            />
+
+            <Card className="shadow-none">
+              <CardContent className="space-y-2 p-4 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Total pages</span>
+                  <span>{job.total_logical_pages ?? job.page_count}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Physical sheets</span>
+                  <span>{job.physical_sheets ?? "-"}</span>
+                </div>
+                {(job.bw_physical_sheets ?? 0) > 0 && (
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">B&W sheets</span>
+                    <span>{job.bw_physical_sheets}</span>
+                  </div>
+                )}
+                {(job.color_physical_sheets ?? 0) > 0 && (
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Color sheets</span>
+                    <span>{job.color_physical_sheets}</span>
+                  </div>
+                )}
+                <div className="flex justify-between font-semibold text-base pt-1 border-t">
+                  <span>Total</span>
+                  <span>₹{amountRupees}</span>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="relative overflow-hidden m-0 shadow-none">
+            <CardContent className="space-y-3 pt-4 text-sm">
               {job.payment_status === "PAID" ? (
                 <div className="space-y-3">
                   <PrintJobStatusChip job={job} />
@@ -764,7 +960,8 @@ export default function PrintPageContent() {
                 </>
               )}
             </CardContent>
-          </Card>
+            </Card>
+          </div>
         )}
       </div>
     </>

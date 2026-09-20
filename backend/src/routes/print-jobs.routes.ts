@@ -1,19 +1,21 @@
-import { and, eq } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { Router } from "express";
 import { db } from "../db";
-import { kiosks, printJobs, savedFiles } from "../db/schema";
+import { kiosks, printJobs } from "../db/schema";
 import { requireAuth } from "../middleware/auth.middleware";
 import { validateBody } from "../middleware/validate.middleware";
 import {
   addEvent,
-  applyRetention,
   createPrintJob,
+  deleteJobDocument,
+  getJobDocuments,
   getOwnedJob,
   listUserJobs,
   parseListJobsQuery,
   recalculateJobPrice,
+  updatePrintJobDocuments,
 } from "../services/print-job.service";
-import { buildPriceBreakdown, getActiveRates, validatePageRangeFormat } from "../services/pricing.service";
+import { validatePageRangeFormat } from "../services/pricing.service";
 import { enqueueDispatchForKiosk } from "../services/kiosk-dispatch.service";
 import { resolveKiosk } from "../services/kiosk.service";
 import { PrintJobEventType } from "../types/enums";
@@ -24,14 +26,15 @@ import { assertActiveKioskSession } from "../services/kiosk.service";
 import { applyJobTimeoutIfNeeded } from "../services/job-timeout.service";
 import { isKioskServiceOnline } from "../services/kiosk-status.service";
 import { cancelPrintJob } from "../services/cancellation.service";
-import { getRefundForJob } from "../services/refund.service";
 import {
   serializePrintJob,
   serializePrintJobDetail,
+  serializePrintJobDocument,
   serializePrintJobListItem,
   serializeRefund,
 } from "../utils/serializers";
 import {
+  printJobCreateLegacySchema,
   printJobCreateSchema,
   printJobReleaseSchema,
   printJobUpdateSchema,
@@ -40,46 +43,61 @@ import { ensureProfile } from "../services/profile.service";
 
 export const printJobsRoutes = Router();
 
+function validateDocumentsPageRanges(
+  documents: { page_range: string }[]
+): void {
+  for (const doc of documents) {
+    if (!validatePageRangeFormat(doc.page_range)) {
+      throw new PrintJobError("Invalid page range format");
+    }
+  }
+}
+
 printJobsRoutes.post(
   "/print-jobs",
   requireAuth,
-  validateBody(printJobCreateSchema),
   async (req, res, next) => {
     try {
       await ensureProfile(req.auth!.userId);
-      const body = req.body as ReturnType<typeof printJobCreateSchema.parse>;
 
-      if (!validatePageRangeFormat(body.page_range)) {
-        throw new PrintJobError("Invalid page range format");
+      const raw = req.body as Record<string, unknown>;
+      let job;
+
+      if (Array.isArray(raw.documents)) {
+        const body = printJobCreateSchema.parse(raw);
+        validateDocumentsPageRanges(body.documents);
+        job = await createPrintJob(req.auth!.userId, body.documents, {
+          save_file: body.save_file,
+        });
+      } else {
+        const body = printJobCreateLegacySchema.parse(raw);
+        validateDocumentsPageRanges([body]);
+        job = await createPrintJob(
+          req.auth!.userId,
+          [
+            {
+              saved_file_id: body.saved_file_id,
+              copies: body.copies,
+              page_range: body.page_range,
+              color_mode: body.color_mode,
+              paper_size: body.paper_size,
+              duplex: body.duplex,
+              pages_per_sheet: body.pages_per_sheet,
+              order: body.order,
+              orientation: body.orientation,
+              fit_to_page: body.fit_to_page,
+              save_file: body.save_file,
+            },
+          ],
+          { save_file: body.save_file }
+        );
       }
 
-      const [saved] = await db
-        .select()
-        .from(savedFiles)
-        .where(
-          and(eq(savedFiles.id, body.saved_file_id), eq(savedFiles.userId, req.auth!.userId))
-        )
-        .limit(1);
-      if (!saved) throw new NotFoundError("File not found");
-
-      const job = await createPrintJob(req.auth!.userId, {
-        id: saved.id,
-        originalFilename: saved.originalFilename,
-        storageKey: saved.storageKey,
-        fileSizeBytes: saved.fileSizeBytes,
-        fileHash: saved.fileHash,
-        pageCount: saved.pageCount,
-      }, body);
-
-      if (body.save_file && !saved.retentionUntil) {
-        const retention = applyRetention(true);
-        await db
-          .update(savedFiles)
-          .set({ retentionUntil: retention.fileRetentionUntil })
-          .where(eq(savedFiles.id, saved.id));
-      }
-
-      ok(res, serializePrintJob(job));
+      const documents = await getJobDocuments(job.id);
+      ok(res, {
+        ...serializePrintJob(job),
+        documents: documents.map(serializePrintJobDocument),
+      });
     } catch (e) {
       next(e);
     }
@@ -105,6 +123,7 @@ printJobsRoutes.get("/print-jobs/:id", requireAuth, async (req, res, next) => {
   try {
     let job = await getOwnedJob(paramId(req.params.id), req.auth!.userId);
     job = await applyJobTimeoutIfNeeded(job);
+    const documents = await getJobDocuments(job.id);
 
     let kioskName: string | null = null;
     let kioskCode: string | null = null;
@@ -115,7 +134,10 @@ printJobsRoutes.get("/print-jobs/:id", requireAuth, async (req, res, next) => {
       kioskCode = kiosk?.kioskCode ?? null;
       kioskServiceOnline = kiosk ? isKioskServiceOnline(kiosk) : false;
     }
-    ok(res, serializePrintJobDetail(job, { kioskName, kioskCode, kioskServiceOnline }));
+    ok(res, {
+      ...serializePrintJobDetail(job, { kioskName, kioskCode, kioskServiceOnline }),
+      documents: documents.map(serializePrintJobDocument),
+    });
   } catch (e) {
     next(e);
   }
@@ -127,39 +149,40 @@ printJobsRoutes.patch(
   validateBody(printJobUpdateSchema),
   async (req, res, next) => {
     try {
-      const job = await getOwnedJob(paramId(req.params.id), req.auth!.userId);
-      if (job.paymentStatus === "PAID") {
-        throw new PrintJobError("Cannot edit paid job");
-      }
       const body = req.body as ReturnType<typeof printJobUpdateSchema.parse>;
-      if (!validatePageRangeFormat(body.page_range)) {
-        throw new PrintJobError("Invalid page range format");
-      }
-      if (body.color_mode !== "BW") {
-        throw new PrintJobError("Color printing not enabled");
-      }
+      validateDocumentsPageRanges(body.documents);
+      const updated = await updatePrintJobDocuments(
+        paramId(req.params.id),
+        req.auth!.userId,
+        body.documents,
+        { save_file: body.save_file }
+      );
+      const documents = await getJobDocuments(updated.id);
+      ok(res, {
+        ...serializePrintJob(updated),
+        documents: documents.map(serializePrintJobDocument),
+      });
+    } catch (e) {
+      next(e);
+    }
+  }
+);
 
-      const retention = applyRetention(body.save_file);
-      await db
-        .update(printJobs)
-        .set({
-          copies: body.copies,
-          pageRange: body.page_range,
-          colorMode: body.color_mode,
-          paperSize: body.paper_size,
-          duplex: body.duplex,
-          pagesPerSheet: body.pages_per_sheet,
-          order: body.order,
-          orientation: body.orientation,
-          fitToPage: body.fit_to_page,
-          saveFile: retention.saveFile,
-          fileRetentionUntil: retention.fileRetentionUntil,
-        })
-        .where(eq(printJobs.id, job.id));
-
-      await recalculateJobPrice(job.id);
-      const updated = await getOwnedJob(job.id, req.auth!.userId);
-      ok(res, serializePrintJob(updated));
+printJobsRoutes.delete(
+  "/print-jobs/:id/documents/:documentId",
+  requireAuth,
+  async (req, res, next) => {
+    try {
+      const updated = await deleteJobDocument(
+        paramId(req.params.id),
+        paramId(req.params.documentId),
+        req.auth!.userId
+      );
+      const documents = await getJobDocuments(updated.id);
+      ok(res, {
+        ...serializePrintJob(updated),
+        documents: documents.map(serializePrintJobDocument),
+      });
     } catch (e) {
       next(e);
     }
@@ -169,28 +192,9 @@ printJobsRoutes.patch(
 printJobsRoutes.post("/print-jobs/:id/calculate-price", requireAuth, async (req, res, next) => {
   try {
     const job = await getOwnedJob(paramId(req.params.id), req.auth!.userId);
-    const rates = await getActiveRates();
-    const breakdown = buildPriceBreakdown({
-      pageCount: job.pageCount,
-      pageRange: job.pageRange,
-      pagesPerSheet: job.pagesPerSheet,
-      duplex: job.duplex,
-      copies: job.copies,
-      colorMode: job.colorMode,
-      bwPaise: rates.bwPaise,
-      colorPaise: rates.colorPaise,
-      currency: rates.currency,
-    });
-    await db
-      .update(printJobs)
-      .set({
-        physicalSheets: breakdown.physical_sheets,
-        amountPaise: breakdown.total_paise,
-        currency: breakdown.currency,
-        pricingSnapshot: breakdown,
-      })
-      .where(eq(printJobs.id, job.id));
-    ok(res, breakdown);
+    await recalculateJobPrice(job.id);
+    const updated = await getOwnedJob(job.id, req.auth!.userId);
+    ok(res, updated.pricingSnapshot);
   } catch (e) {
     next(e);
   }

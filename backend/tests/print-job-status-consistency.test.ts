@@ -42,6 +42,10 @@ function jobRow(overrides: Record<string, unknown>) {
     completedAt: null,
     failedAt: null,
     lastPiEventAt: null,
+    documentCount: 1,
+    totalLogicalPages: 1,
+    bwPhysicalSheets: 1,
+    colorPhysicalSheets: 0,
     ...overrides,
   };
 }

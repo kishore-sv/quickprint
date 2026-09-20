@@ -33,6 +33,7 @@ const envSchema = z.object({
   DEFAULT_BW_SHEET_PAISE: z.coerce.number().default(200),
   DEFAULT_COLOR_SHEET_PAISE: z.coerce.number().default(300),
   PRESIGNED_URL_EXPIRES: z.coerce.number().default(3600),
+  PREVIEW_URL_EXPIRES: z.coerce.number().default(300),
   NODE_ENV: z.enum(["development", "production", "test"]).default("development"),
   PORT: z.coerce.number().default(8000),
   PI_JOB_DOWNLOAD_EXPIRES: z.coerce.number().optional(),

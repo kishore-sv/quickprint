@@ -55,7 +55,7 @@ async function renderPageToDataUrl(
     maxCssHeight,
     format = "image/png",
     jpegQuality = 0.92,
-    maxDevicePixelRatio = 2,
+    maxDevicePixelRatio = 3,
   } = options;
 
   const doc = await getDocument(file);
@@ -116,11 +116,26 @@ export async function renderPdfPagePreview(
   maxCssWidth: number,
   maxCssHeight: number
 ): Promise<string> {
+  const oversample = 2.5;
   return renderPageToDataUrl(file, pageNumber, {
-    maxCssWidth,
-    maxCssHeight,
+    maxCssWidth: maxCssWidth * oversample,
+    maxCssHeight: maxCssHeight * oversample,
     format: "image/png",
-    maxDevicePixelRatio: 3,
+    maxDevicePixelRatio: 4,
+  });
+}
+
+/** High-resolution render for sheet / N-up previews */
+export async function renderPdfPageForSheet(
+  file: File,
+  pageNumber: number,
+  targetWidth = 560
+): Promise<string> {
+  const oversample = 2;
+  return renderPageToDataUrl(file, pageNumber, {
+    targetWidth: targetWidth * oversample,
+    format: "image/png",
+    maxDevicePixelRatio: 4,
   });
 }
 

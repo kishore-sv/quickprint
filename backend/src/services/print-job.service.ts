@@ -1,13 +1,18 @@
 import { randomBytes, randomUUID } from "crypto";
-import { and, desc, eq, isNull, not, notInArray, or } from "drizzle-orm";
+import { and, asc, desc, eq, isNull, not, notInArray, or } from "drizzle-orm";
 import { db } from "../db";
-import { printJobEvents, printJobs, refunds } from "../db/schema";
+import { printJobDocuments, printJobEvents, printJobs, refunds, savedFiles } from "../db/schema";
 import type { PrintJobStatus } from "../types/enums";
 import { PrintJobEventType } from "../types/enums";
 import { NotFoundError, PrintJobError } from "../utils/errors";
 import { requeueUnacknowledgedJobsForUser } from "./kiosk-dispatch.service";
-import { buildPriceBreakdown, getActiveRates } from "./pricing.service";
-import type { PrintSettingsInput } from "../validators/print-job.validator";
+import {
+  aggregatePriceBreakdowns,
+  buildPriceBreakdown,
+  getActiveRates,
+} from "./pricing.service";
+import { ensureMergedPdf } from "./print-composition.service";
+import type { PrintDocumentInput, PrintSettingsInput } from "../validators/print-job.validator";
 
 const TERMINAL_STATUSES = ["CANCELLED", "FAILED", "COMPLETED", "EXPIRED"] as const;
 
@@ -44,6 +49,10 @@ export const printJobListSelection = {
   completedAt: printJobs.completedAt,
   failedAt: printJobs.failedAt,
   lastPiEventAt: printJobs.lastPiEventAt,
+  documentCount: printJobs.documentCount,
+  totalLogicalPages: printJobs.totalLogicalPages,
+  bwPhysicalSheets: printJobs.bwPhysicalSheets,
+  colorPhysicalSheets: printJobs.colorPhysicalSheets,
 };
 
 export type PrintJobListRow = {
@@ -79,6 +88,10 @@ export type PrintJobListRow = {
   completedAt: Date | null;
   failedAt: Date | null;
   lastPiEventAt: Date | null;
+  documentCount: number;
+  totalLogicalPages: number | null;
+  bwPhysicalSheets: number | null;
+  colorPhysicalSheets: number | null;
   refund?: {
     id: string;
     status: string;
@@ -172,34 +185,6 @@ export async function addEvent(
   });
 }
 
-export async function recalculateJobPrice(jobId: string) {
-  const [job] = await db.select().from(printJobs).where(eq(printJobs.id, jobId)).limit(1);
-  if (!job) throw new NotFoundError("Job not found");
-
-  const rates = await getActiveRates();
-  const breakdown = buildPriceBreakdown({
-    pageCount: job.pageCount,
-    pageRange: job.pageRange,
-    pagesPerSheet: job.pagesPerSheet,
-    duplex: job.duplex,
-    copies: job.copies,
-    colorMode: job.colorMode,
-    bwPaise: rates.bwPaise,
-    colorPaise: rates.colorPaise,
-    currency: rates.currency,
-  });
-
-  await db
-    .update(printJobs)
-    .set({
-      physicalSheets: breakdown.physical_sheets,
-      amountPaise: breakdown.total_paise,
-      currency: breakdown.currency,
-      pricingSnapshot: breakdown,
-    })
-    .where(eq(printJobs.id, jobId));
-}
-
 export function applyRetention(saveFile: boolean) {
   if (!saveFile) return { saveFile: false, fileRetentionUntil: null as Date | null };
   const until = new Date();
@@ -207,51 +192,72 @@ export function applyRetention(saveFile: boolean) {
   return { saveFile: true, fileRetentionUntil: until };
 }
 
-export async function createPrintJob(
+export async function getJobDocuments(jobId: string) {
+  return db
+    .select()
+    .from(printJobDocuments)
+    .where(eq(printJobDocuments.printJobId, jobId))
+    .orderBy(asc(printJobDocuments.sortOrder));
+}
+
+function formatJobFilename(docCount: number, firstName: string): string {
+  if (docCount <= 1) return firstName;
+  return `${firstName} + ${docCount - 1} more`;
+}
+
+function hasMixedColorModes(breakdowns: ReturnType<typeof buildPriceBreakdown>[]): boolean {
+  const modes = new Set(breakdowns.map((b) => b.color_mode));
+  return modes.size > 1;
+}
+
+async function resolveSavedFiles(
   userId: string,
-  savedFile: {
-    id: string;
-    originalFilename: string;
-    storageKey: string;
-    fileSizeBytes: number;
-    fileHash: string;
-    pageCount: number;
-  },
-  settings: PrintSettingsInput
+  documents: PrintDocumentInput[]
 ) {
-  if (settings.color_mode !== "BW") {
-    throw new PrintJobError("Color printing not enabled");
+  const resolved = [];
+  for (const doc of documents) {
+    const [saved] = await db
+      .select()
+      .from(savedFiles)
+      .where(and(eq(savedFiles.id, doc.saved_file_id), eq(savedFiles.userId, userId)))
+      .limit(1);
+    if (!saved) throw new NotFoundError("File not found");
+    resolved.push({ doc, saved });
   }
+  return resolved;
+}
 
-  const retention = applyRetention(settings.save_file);
-  const rates = await getActiveRates();
-  const breakdown = buildPriceBreakdown({
-    pageCount: savedFile.pageCount,
-    pageRange: settings.page_range,
-    pagesPerSheet: settings.pages_per_sheet,
-    duplex: settings.duplex,
-    copies: settings.copies,
-    colorMode: settings.color_mode,
-    bwPaise: rates.bwPaise,
-    colorPaise: rates.colorPaise,
-    currency: rates.currency,
-  });
+async function buildDocumentRows(
+  documents: PrintDocumentInput[],
+  savedFilesList: Awaited<ReturnType<typeof resolveSavedFiles>>,
+  rates: Awaited<ReturnType<typeof getActiveRates>>
+) {
+  const rows = [];
+  const breakdowns = [];
 
-  const jobNumber = generateJobNumber();
-  const [job] = await db
-    .insert(printJobs)
-    .values({
-      id: randomUUID(),
-      jobNumber,
-      userId,
-      savedFileId: savedFile.id,
-      status: "CREATED",
-      paymentStatus: "UNPAID",
-      originalFilename: savedFile.originalFilename,
-      storageKey: savedFile.storageKey,
-      fileSizeBytes: savedFile.fileSizeBytes,
-      fileHash: savedFile.fileHash,
-      pageCount: savedFile.pageCount,
+  for (let i = 0; i < documents.length; i++) {
+    const settings = documents[i];
+    const saved = savedFilesList[i]!.saved;
+    const breakdown = buildPriceBreakdown({
+      pageCount: saved.pageCount,
+      pageRange: settings.page_range,
+      pagesPerSheet: settings.pages_per_sheet,
+      duplex: settings.duplex,
+      copies: settings.copies,
+      colorMode: settings.color_mode,
+      bwPaise: rates.bwPaise,
+      colorPaise: rates.colorPaise,
+      currency: rates.currency,
+      order: settings.order,
+    });
+    breakdowns.push(breakdown);
+    rows.push({
+      sortOrder: i,
+      savedFileId: saved.id,
+      originalFilename: saved.originalFilename,
+      storageKey: saved.storageKey,
+      fileHash: saved.fileHash,
+      pageCount: saved.pageCount,
       copies: settings.copies,
       pageRange: settings.page_range,
       colorMode: settings.color_mode,
@@ -262,16 +268,283 @@ export async function createPrintJob(
       orientation: settings.orientation,
       fitToPage: settings.fit_to_page,
       physicalSheets: breakdown.physical_sheets,
+      pagesInRange: breakdown.pages_in_range,
       amountPaise: breakdown.total_paise,
-      currency: breakdown.currency,
       pricingSnapshot: breakdown,
+    });
+  }
+
+  return { rows, breakdowns, aggregate: aggregatePriceBreakdowns(breakdowns, rates.currency) };
+}
+
+export async function createPrintJob(
+  userId: string,
+  documents: PrintDocumentInput[],
+  jobSettings?: { save_file?: boolean }
+) {
+  if (documents.length === 0) {
+    throw new PrintJobError("At least one document is required");
+  }
+
+  const saveFile = jobSettings?.save_file ?? documents.some((d) => d.save_file);
+  const retention = applyRetention(saveFile);
+  const rates = await getActiveRates();
+  const savedFilesList = await resolveSavedFiles(userId, documents);
+  const { rows, aggregate } = await buildDocumentRows(documents, savedFilesList, rates);
+
+  const first = rows[0]!;
+  const firstSaved = savedFilesList[0]!.saved;
+  const jobNumber = generateJobNumber();
+  const jobId = randomUUID();
+
+  const [job] = await db
+    .insert(printJobs)
+    .values({
+      id: jobId,
+      jobNumber,
+      userId,
+      savedFileId: firstSaved.id,
+      status: "CREATED",
+      paymentStatus: "UNPAID",
+      originalFilename: formatJobFilename(rows.length, first.originalFilename),
+      storageKey: first.storageKey,
+      fileSizeBytes: firstSaved.fileSizeBytes,
+      fileHash: first.fileHash,
+      pageCount: aggregate.total_logical_pages,
+      copies: first.copies,
+      pageRange: first.pageRange,
+      colorMode: hasMixedColorModes(aggregate.documents) ? "COLOR" : first.colorMode,
+      paperSize: first.paperSize,
+      duplex: first.duplex,
+      pagesPerSheet: first.pagesPerSheet,
+      order: first.order,
+      orientation: first.orientation,
+      fitToPage: first.fitToPage,
+      physicalSheets: aggregate.physical_sheets,
+      amountPaise: aggregate.total_paise,
+      currency: aggregate.currency,
+      pricingSnapshot: aggregate,
       saveFile: retention.saveFile,
       fileRetentionUntil: retention.fileRetentionUntil,
+      documentCount: rows.length,
+      totalLogicalPages: aggregate.total_logical_pages,
+      bwPhysicalSheets: aggregate.bw_physical_sheets,
+      colorPhysicalSheets: aggregate.color_physical_sheets,
+      mergedStorageKey: null,
     })
     .returning();
 
-  await addEvent(job.id, PrintJobEventType.JOB_CREATED);
+  await db.insert(printJobDocuments).values(
+    rows.map((row) => ({
+      id: randomUUID(),
+      printJobId: jobId,
+      ...row,
+    }))
+  );
+
+  if (saveFile) {
+    for (const { saved } of savedFilesList) {
+      if (!saved.retentionUntil) {
+        await db
+          .update(savedFiles)
+          .set({ retentionUntil: retention.fileRetentionUntil })
+          .where(eq(savedFiles.id, saved.id));
+      }
+    }
+  }
+
+  try {
+    const docs = await getJobDocuments(jobId);
+    const mergedKey = await ensureMergedPdf(jobId, docs, null);
+    await db
+      .update(printJobs)
+      .set({ mergedStorageKey: mergedKey })
+      .where(eq(printJobs.id, jobId));
+    job.mergedStorageKey = mergedKey;
+  } catch {
+    // Composition can be retried at dispatch
+  }
+
+  await addEvent(job.id, PrintJobEventType.JOB_CREATED, { document_count: rows.length });
   return job;
+}
+
+export async function updatePrintJobDocuments(
+  jobId: string,
+  userId: string,
+  documents: PrintDocumentInput[],
+  jobSettings?: { save_file?: boolean }
+) {
+  const job = await getOwnedJob(jobId, userId);
+  if (job.paymentStatus === "PAID") {
+    throw new PrintJobError("Cannot edit paid job");
+  }
+  if (documents.length === 0) {
+    throw new PrintJobError("At least one document is required");
+  }
+
+  const saveFile = jobSettings?.save_file ?? documents.some((d) => d.save_file);
+  const retention = applyRetention(saveFile);
+  const rates = await getActiveRates();
+  const savedFilesList = await resolveSavedFiles(userId, documents);
+  const { rows, aggregate } = await buildDocumentRows(documents, savedFilesList, rates);
+  const first = rows[0]!;
+  const firstSaved = savedFilesList[0]!.saved;
+
+  await db.delete(printJobDocuments).where(eq(printJobDocuments.printJobId, jobId));
+
+  await db.insert(printJobDocuments).values(
+    rows.map((row) => ({
+      id: randomUUID(),
+      printJobId: jobId,
+      ...row,
+    }))
+  );
+
+  await db
+    .update(printJobs)
+    .set({
+      originalFilename: formatJobFilename(rows.length, first.originalFilename),
+      storageKey: first.storageKey,
+      fileSizeBytes: firstSaved.fileSizeBytes,
+      fileHash: first.fileHash,
+      pageCount: aggregate.total_logical_pages,
+      copies: first.copies,
+      pageRange: first.pageRange,
+      colorMode: hasMixedColorModes(aggregate.documents) ? "COLOR" : first.colorMode,
+      paperSize: first.paperSize,
+      duplex: first.duplex,
+      pagesPerSheet: first.pagesPerSheet,
+      order: first.order,
+      orientation: first.orientation,
+      fitToPage: first.fitToPage,
+      physicalSheets: aggregate.physical_sheets,
+      amountPaise: aggregate.total_paise,
+      currency: aggregate.currency,
+      pricingSnapshot: aggregate,
+      saveFile: retention.saveFile,
+      fileRetentionUntil: retention.fileRetentionUntil,
+      documentCount: rows.length,
+      totalLogicalPages: aggregate.total_logical_pages,
+      bwPhysicalSheets: aggregate.bw_physical_sheets,
+      colorPhysicalSheets: aggregate.color_physical_sheets,
+      mergedStorageKey: null,
+      savedFileId: firstSaved.id,
+    })
+    .where(eq(printJobs.id, jobId));
+
+  try {
+    const docs = await getJobDocuments(jobId);
+    const mergedKey = await ensureMergedPdf(jobId, docs, null);
+    await db
+      .update(printJobs)
+      .set({ mergedStorageKey: mergedKey })
+      .where(eq(printJobs.id, jobId));
+  } catch {
+    // retried at dispatch
+  }
+
+  return getOwnedJob(jobId, userId);
+}
+
+export async function deleteJobDocument(
+  jobId: string,
+  documentId: string,
+  userId: string
+) {
+  const job = await getOwnedJob(jobId, userId);
+  if (job.paymentStatus === "PAID") {
+    throw new PrintJobError("Cannot edit paid job");
+  }
+
+  const docs = await getJobDocuments(jobId);
+  if (docs.length <= 1) {
+    throw new PrintJobError("Cannot delete the only document in a job");
+  }
+
+  const target = docs.find((d) => d.id === documentId);
+  if (!target) throw new NotFoundError("Document not found");
+
+  await db.delete(printJobDocuments).where(eq(printJobDocuments.id, documentId));
+
+  const remaining = docs
+    .filter((d) => d.id !== documentId)
+    .map((d, i) => ({
+      saved_file_id: d.savedFileId!,
+      copies: d.copies,
+      page_range: d.pageRange,
+      color_mode: d.colorMode,
+      paper_size: d.paperSize,
+      duplex: d.duplex,
+      pages_per_sheet: d.pagesPerSheet,
+      order: d.order,
+      orientation: d.orientation,
+      fit_to_page: d.fitToPage,
+      save_file: job.saveFile,
+    }));
+
+  return updatePrintJobDocuments(jobId, userId, remaining, { save_file: job.saveFile });
+}
+
+export async function recalculateJobPrice(jobId: string) {
+  const docs = await getJobDocuments(jobId);
+  if (docs.length === 0) {
+    const [job] = await db.select().from(printJobs).where(eq(printJobs.id, jobId)).limit(1);
+    if (!job) throw new NotFoundError("Job not found");
+    const rates = await getActiveRates();
+    const breakdown = buildPriceBreakdown({
+      pageCount: job.pageCount,
+      pageRange: job.pageRange,
+      pagesPerSheet: job.pagesPerSheet,
+      duplex: job.duplex,
+      copies: job.copies,
+      colorMode: job.colorMode,
+      bwPaise: rates.bwPaise,
+      colorPaise: rates.colorPaise,
+      currency: rates.currency,
+      order: job.order,
+    });
+    await db
+      .update(printJobs)
+      .set({
+        physicalSheets: breakdown.physical_sheets,
+        amountPaise: breakdown.total_paise,
+        currency: breakdown.currency,
+        pricingSnapshot: breakdown,
+      })
+      .where(eq(printJobs.id, jobId));
+    return;
+  }
+
+  const rates = await getActiveRates();
+  const breakdowns = docs.map((doc) =>
+    buildPriceBreakdown({
+      pageCount: doc.pageCount,
+      pageRange: doc.pageRange,
+      pagesPerSheet: doc.pagesPerSheet,
+      duplex: doc.duplex,
+      copies: doc.copies,
+      colorMode: doc.colorMode,
+      bwPaise: rates.bwPaise,
+      colorPaise: rates.colorPaise,
+      currency: rates.currency,
+      order: doc.order,
+    })
+  );
+  const aggregate = aggregatePriceBreakdowns(breakdowns, rates.currency);
+
+  await db
+    .update(printJobs)
+    .set({
+      physicalSheets: aggregate.physical_sheets,
+      amountPaise: aggregate.total_paise,
+      currency: aggregate.currency,
+      pricingSnapshot: aggregate,
+      totalLogicalPages: aggregate.total_logical_pages,
+      bwPhysicalSheets: aggregate.bw_physical_sheets,
+      colorPhysicalSheets: aggregate.color_physical_sheets,
+    })
+    .where(eq(printJobs.id, jobId));
 }
 
 export async function getOwnedJob(jobId: string, userId: string) {
@@ -373,6 +646,10 @@ export async function listUserJobs(
     completedAt: row.completedAt,
     failedAt: row.failedAt,
     lastPiEventAt: row.lastPiEventAt,
+    documentCount: row.documentCount,
+    totalLogicalPages: row.totalLogicalPages,
+    bwPhysicalSheets: row.bwPhysicalSheets,
+    colorPhysicalSheets: row.colorPhysicalSheets,
     refund:
       row.status === "CANCELLED" && row.refundId
         ? {

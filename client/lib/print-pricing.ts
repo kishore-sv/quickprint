@@ -1,39 +1,15 @@
 /** Client-side pricing helpers (mirrors backend pricing.service). */
 
 import type { PageSet } from "@/lib/types";
+import { countPhysicalSheets, parsePageRange } from "@/lib/print-layout";
+
+export { parsePageRange, countPhysicalSheets };
 
 export function filterPagesByPageSet(pages: number[], pageSet: PageSet): number[] {
   const sorted = [...pages].sort((a, b) => a - b);
   if (pageSet === "ODD") return sorted.filter((p) => p % 2 === 1);
   if (pageSet === "EVEN") return sorted.filter((p) => p % 2 === 0);
   return sorted;
-}
-
-export function parsePageRange(pageRange: string, pageCount: number): number[] {
-  const text = pageRange.trim().toLowerCase();
-  if (text === "" || text === "all" || text === "*") {
-    return Array.from({ length: pageCount }, (_, i) => i + 1);
-  }
-
-  const pages = new Set<number>();
-  for (const part of text.split(",")) {
-    const trimmed = part.trim();
-    if (!trimmed) continue;
-    if (trimmed.includes("-")) {
-      const [startS, endS] = trimmed.split("-", 2);
-      let start = parseInt(startS, 10);
-      let end = parseInt(endS, 10);
-      if (start > end) [start, end] = [end, start];
-      for (let p = start; p <= end; p++) {
-        if (p >= 1 && p <= pageCount) pages.add(p);
-      }
-    } else {
-      const p = parseInt(trimmed, 10);
-      if (p >= 1 && p <= pageCount) pages.add(p);
-    }
-  }
-
-  return [...pages].sort((a, b) => a - b);
 }
 
 export function formatPageRange(selected: number[], pageCount: number): string {
@@ -58,27 +34,16 @@ export function formatPageRange(selected: number[], pageCount: number): string {
   return ranges.join(",");
 }
 
-export function countPhysicalSheets(
-  pageCount: number,
-  pageRange: string,
-  pagesPerSheet: number,
-  duplex: "SINGLE" | "DOUBLE",
-  copies: number
-): number {
-  const selected = parsePageRange(pageRange, pageCount);
-  const logicalPerCopy = Math.ceil(selected.length / pagesPerSheet);
-  const physicalPerCopy =
-    duplex === "DOUBLE" ? Math.ceil(logicalPerCopy / 2) : logicalPerCopy;
-  return physicalPerCopy * copies;
-}
-
 export function estimatePrintPricePaise(params: {
   pageCount: number;
   pageRange: string;
   pagesPerSheet: number;
   duplex: "SINGLE" | "DOUBLE";
   copies: number;
+  colorMode: "BW" | "COLOR";
   bwPerSheetPaise: number;
+  colorPerSheetPaise: number;
+  order?: "NORMAL" | "REVERSE";
 }): { physicalSheets: number; pagesInRange: number; totalPaise: number } {
   const selected = parsePageRange(params.pageRange, params.pageCount);
   const physicalSheets = countPhysicalSheets(
@@ -86,13 +51,58 @@ export function estimatePrintPricePaise(params: {
     params.pageRange,
     params.pagesPerSheet,
     params.duplex,
-    params.copies
+    params.copies,
+    params.order ?? "NORMAL"
   );
+  const unit =
+    params.colorMode === "BW" ? params.bwPerSheetPaise : params.colorPerSheetPaise;
   return {
-    pagesInRange: selected.length * params.copies,
+    pagesInRange: selected.length,
     physicalSheets,
-    totalPaise: physicalSheets * params.bwPerSheetPaise,
+    totalPaise: physicalSheets * unit,
   };
+}
+
+export function estimateJobTotalPaise(
+  drafts: Array<{
+    pageCount: number;
+    pageRange: string;
+    settings: {
+      pages_per_sheet: number;
+      duplex: "SINGLE" | "DOUBLE";
+      copies: number;
+      color_mode: "BW" | "COLOR";
+      order: "NORMAL" | "REVERSE";
+    };
+  }>,
+  pricing: { bw_per_sheet_paise: number; color_per_sheet_paise: number }
+) {
+  let total = 0;
+  let physicalSheets = 0;
+  let logicalPages = 0;
+  let bwSheets = 0;
+  let colorSheets = 0;
+
+  for (const d of drafts) {
+    const est = estimatePrintPricePaise({
+      pageCount: d.pageCount,
+      pageRange: d.pageRange,
+      pagesPerSheet: d.settings.pages_per_sheet,
+      duplex: d.settings.duplex,
+      copies: d.settings.copies,
+      colorMode: d.settings.color_mode,
+      bwPerSheetPaise: pricing.bw_per_sheet_paise,
+      colorPerSheetPaise: pricing.color_per_sheet_paise,
+      order: d.settings.order,
+    });
+    total += est.totalPaise;
+    physicalSheets += est.physicalSheets;
+    logicalPages += est.pagesInRange;
+    if (d.settings.color_mode === "BW") bwSheets += est.physicalSheets;
+    else colorSheets += est.physicalSheets;
+  }
+
+  return { totalPaise: total, physicalSheets, logicalPages, bwSheets, colorSheets };
 }
 
 export function formatRupees(paise: number): string {

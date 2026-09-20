@@ -5,6 +5,7 @@ export * from "./pricing-rules";
 export * from "./saved-files";
 export * from "./kiosk-sessions";
 export * from "./print-jobs";
+export * from "./print-job-documents";
 export * from "./print-job-events";
 export * from "./payments";
 export * from "./refunds";

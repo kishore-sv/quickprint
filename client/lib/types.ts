@@ -79,6 +79,26 @@ export type KioskServiceStatus = {
   };
 };
 
+export type PrintJobDocument = {
+  id: string;
+  sort_order: number;
+  saved_file_id: string | null;
+  original_filename: string;
+  page_count: number;
+  copies: number;
+  page_range: string;
+  color_mode: string;
+  paper_size: string;
+  duplex: string;
+  pages_per_sheet: number;
+  order: string;
+  orientation: string;
+  fit_to_page: boolean;
+  physical_sheets: number | null;
+  pages_in_range: number | null;
+  amount_paise: number | null;
+};
+
 export type PrintJob = {
   id: string;
   job_number: string;
@@ -103,6 +123,11 @@ export type PrintJob = {
   file_retention_until: string | null;
   kiosk_id: string | null;
   saved_file_id: string | null;
+  document_count?: number;
+  total_logical_pages?: number | null;
+  bw_physical_sheets?: number | null;
+  color_physical_sheets?: number | null;
+  documents?: PrintJobDocument[];
   created_at: string;
   paid_at: string | null;
   claimed_at: string | null;
@@ -155,7 +180,7 @@ export type PrintQuality = "NORMAL" | "DRAFT" | "BEST";
 export type PrintSettings = {
   copies: number;
   page_range: string;
-  color_mode: "BW";
+  color_mode: "BW" | "COLOR";
   paper_size: "A4";
   duplex: "SINGLE" | "DOUBLE";
   pages_per_sheet: number;

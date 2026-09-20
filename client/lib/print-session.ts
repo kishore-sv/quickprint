@@ -10,12 +10,12 @@ export type PersistedPrintDraft = {
   selectedPages: number[];
   pageCount: number;
   originalFilename: string;
+  settings: PrintSettings;
 };
 
 export type PersistedPrintFlow = {
   version: 1;
   step: PrintFlowStep;
-  settings: PrintSettings;
   applySettingsToAll: boolean;
   fileIndex: number;
   drafts: PersistedPrintDraft[];
@@ -53,6 +53,7 @@ export function draftsToPersisted(drafts: PrintFileDraft[]): PersistedPrintDraft
       selectedPages: [...d.selectedPages].sort((a, b) => a - b),
       pageCount: d.pageCount,
       originalFilename: d.savedFile!.original_filename,
+      settings: d.settings,
     }));
 }
 
@@ -87,6 +88,7 @@ export async function draftsFromPersisted(
       pageCount: saved.page_count,
       savedFile: saved,
       selectedPages: new Set(pages.filter((n) => n >= 1 && n <= saved.page_count)),
+      settings: p.settings,
     };
   });
 }
