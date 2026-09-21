@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { CheckCircle2, Circle, CircleCheckBig, Loader, XCircle } from "lucide-react";
+import { ArrowLeft, CheckCircle2, Circle, CircleCheckBig, Loader, XCircle } from "lucide-react";
 import { CancelPrintJobDialog } from "@/components/print/cancel-print-job-dialog";
 import { PrintJobStatusChip } from "@/components/print/print-job-status-chip";
 import { Button } from "@/components/ui/button";
@@ -204,6 +204,18 @@ export default function PrintJobStatusPage() {
 
       {!terminal && (
         <p className="text-xs text-muted-foreground">Updating automatically…</p>
+      )}
+
+      {isSuccess && (
+        <Button
+          type="button"
+          variant="outline"
+          className="w-full"
+          onClick={() => router.push("/home")}
+        >
+          <ArrowLeft aria-hidden />
+          Go Back
+        </Button>
       )}
 
       {canRetry && (
