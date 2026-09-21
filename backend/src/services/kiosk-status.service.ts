@@ -20,9 +20,12 @@ export function isKioskServiceOnline(kiosk: Pick<InferSelectModel<typeof kiosks>
 export async function serializeKioskServiceStatus(kiosk: InferSelectModel<typeof kiosks>) {
   const printerTelemetry = await resolvePrinterTelemetryByKioskId(kiosk.id);
   const display = printerTelemetry.display_state;
+  const agentOnline = isKioskServiceOnline(kiosk);
   let message: string | null = null;
   if (display === PrinterDisplayState.TELEMETRY_STALE) {
-    message = "Printer status is temporarily unavailable.";
+    if (!agentOnline) {
+      message = "Printer status is temporarily unavailable.";
+    }
   } else if (display === PrinterDisplayState.OFFLINE) {
     message = "Printer appears offline.";
   } else if (display === PrinterDisplayState.UNKNOWN) {
@@ -43,6 +46,7 @@ export async function serializeKioskServiceStatus(kiosk: InferSelectModel<typeof
     printer: {
       display_state: printerTelemetry.display_state,
       telemetry_fresh: printerTelemetry.telemetry_fresh,
+      telemetry_last_seen_at: printerTelemetry.telemetry_last_seen_at,
       message,
     },
   };

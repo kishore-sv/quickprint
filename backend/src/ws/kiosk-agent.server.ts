@@ -10,7 +10,11 @@ import {
   requeueUnacknowledgedJobsForKiosk,
 } from "../services/kiosk-dispatch.service";
 import { applyPiOutboundMessage } from "../services/pi-status.service";
-import { applyPrinterTelemetry } from "../services/printer-telemetry.service";
+import {
+  applyPrinterTelemetry,
+  onAgentTelemetrySessionStart,
+} from "../services/printer-telemetry.service";
+import { clearStaleBroadcastLatchForKiosk } from "../services/printer-telemetry-stale.monitor";
 import { wsLogger } from "../utils/logger";
 import {
   PiOutboundType,
@@ -50,6 +54,8 @@ export async function handleKioskAgentConnection(
   const registry = getKioskAgentRegistry();
   registry.register(kiosk.id, ws);
   await registry.touchKioskLastSeen(kiosk.id);
+  await onAgentTelemetrySessionStart(kiosk.id);
+  clearStaleBroadcastLatchForKiosk(kiosk.id);
   await onAgentConnected(kiosk.id);
   void logAgentConnected(kiosk.id);
 

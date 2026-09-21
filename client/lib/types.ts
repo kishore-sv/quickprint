@@ -81,6 +81,7 @@ export type KioskServiceStatus = {
   printer?: {
     display_state: string;
     telemetry_fresh: boolean;
+    telemetry_last_seen_at?: string | null;
     message: string | null;
   };
 };

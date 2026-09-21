@@ -53,6 +53,10 @@ export function startPrinterTelemetryStaleMonitor(): void {
   }, intervalMs);
 }
 
+export function clearStaleBroadcastLatchForKiosk(kioskId: string): void {
+  staleBroadcastSent.delete(kioskId);
+}
+
 export function stopPrinterTelemetryStaleMonitor(): void {
   if (monitorTimer) {
     clearInterval(monitorTimer);

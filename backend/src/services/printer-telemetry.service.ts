@@ -131,6 +131,18 @@ export async function resolvePrinterTelemetryByKioskId(
   return resolvePrinterTelemetryForKiosk(row);
 }
 
+/** Reset sequence guard when Pi opens a new agent WebSocket session (sequence restarts at 1). */
+export async function onAgentTelemetrySessionStart(kioskId: string): Promise<void> {
+  const existing = await getKioskPrinterStateRow(kioskId);
+  if (!existing) {
+    return;
+  }
+  await db
+    .update(kioskPrinterState)
+    .set({ lastSequence: 0, updatedAt: new Date() })
+    .where(eq(kioskPrinterState.kioskId, kioskId));
+}
+
 export async function applyPrinterTelemetry(
   kioskId: string,
   msg: PiPrinterTelemetryMessage

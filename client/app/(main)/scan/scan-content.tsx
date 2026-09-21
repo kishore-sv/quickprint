@@ -93,6 +93,7 @@ export default function ScanPage() {
   const [serviceOnline, setServiceOnline] = useState<boolean | null>(null);
   const [printerStatusMessage, setPrinterStatusMessage] = useState<string | null>(null);
   const [printerDisplayState, setPrinterDisplayState] = useState<string | null>(null);
+  const [printerTelemetryFresh, setPrinterTelemetryFresh] = useState<boolean | null>(null);
   const [jobs, setJobs] = useState<PrintJob[]>([]);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [jobsLoading, setJobsLoading] = useState(true);
@@ -116,11 +117,12 @@ export default function ScanPage() {
       setServiceOnline(status.service.online);
       setPrinterStatusMessage(status.printer?.message ?? null);
       setPrinterDisplayState(status.printer?.display_state ?? null);
+      setPrinterTelemetryFresh(status.printer?.telemetry_fresh ?? null);
     } catch {
       setServiceOnline(false);
-        setPrinterStatusMessage(null);
-        setPrinterDisplayState(null);
+      setPrinterStatusMessage(null);
       setPrinterDisplayState(null);
+      setPrinterTelemetryFresh(null);
     }
   }, []);
 
@@ -390,12 +392,17 @@ export default function ScanPage() {
                   </p>
                 </div>
               )}
-              {printerDisplayState && serviceOnline !== false ? (
+              {printerDisplayState &&
+              serviceOnline !== false &&
+              (printerTelemetryFresh ||
+                (printerDisplayState !== "TELEMETRY_STALE" && serviceOnline)) ? (
                 <Badge variant="outline" className="mt-2">
                   {printerDisplayStateLabel(printerDisplayState) ?? printerDisplayState}
                 </Badge>
               ) : null}
-              {printerStatusMessage && serviceOnline !== false ? (
+              {printerStatusMessage &&
+              serviceOnline !== false &&
+              !(serviceOnline && printerTelemetryFresh) ? (
                 <p className="mt-2 text-xs text-amber-800 dark:text-amber-200">
                   {printerStatusMessage}
                 </p>
