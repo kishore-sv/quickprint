@@ -166,6 +166,7 @@ export function serializePrintJobDetail(
     kioskName?: string | null;
     kioskCode?: string | null;
     kioskServiceOnline?: boolean | null;
+    printerDisplayState?: string | null;
   }
 ) {
   const base = basePrintJobFields(job);
@@ -195,6 +196,7 @@ export function serializePrintJobDetail(
     kiosk_name: options?.kioskName ?? null,
     kiosk_code: options?.kioskCode ?? null,
     kiosk_service_online: options?.kioskServiceOnline ?? null,
+    printer_display_state: options?.printerDisplayState ?? null,
     updated_at: jobUpdatedAt(jobForMessage),
     cleanup_status: job.cleanupStatus ?? null,
     is_terminal: isTerminalDisplayStatus(displayStatus),

@@ -8,6 +8,7 @@ import { KioskIdle } from "./kiosk-idle";
 import { KioskJobProgress } from "./kiosk-job-progress";
 import { KioskCompleted } from "./kiosk-completed";
 import { KioskError } from "./kiosk-error";
+import { KioskPrinterBanner } from "./kiosk-printer-banner";
 
 type KioskDisplayProps = {
   kioskCode: string;
@@ -74,7 +75,8 @@ export function KioskDisplay({ kioskCode }: KioskDisplayProps) {
   }
 
   return (
-    <div className="h-full w-full bg-background text-foreground">
+    <div className="relative h-full w-full bg-background text-foreground">
+      <KioskPrinterBanner printer={view.printer} />
       <AnimatePresence mode="wait">
         <motion.div
           key={view.state}

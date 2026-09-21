@@ -4,10 +4,15 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { fetchKioskDisplayState, kioskDisplayWsUrl } from "./api";
 import {
   applyDisplayEvent,
+  applyPrinterEvent,
   reconcileDisplayState,
   shouldReturnToIdle,
 } from "./map-kiosk-display-state";
-import type { KioskDisplayEvent, KioskDisplayViewState } from "./types";
+import type {
+  KioskDisplayEvent,
+  KioskDisplayPrinterEvent,
+  KioskDisplayViewState,
+} from "./types";
 import { WS_BACKOFF_MS } from "./types";
 
 function parseEvent(data: string): KioskDisplayEvent | null {
@@ -28,6 +33,7 @@ export function useKioskDisplay(kioskCode: string, enabled: boolean) {
     scanUrl: "",
     jobId: null,
     updatedAt: new Date().toISOString(),
+    printer: null,
   });
 
   const wsRef = useRef<WebSocket | null>(null);
@@ -57,7 +63,18 @@ export function useKioskDisplay(kioskCode: string, enabled: boolean) {
     };
 
     ws.onmessage = (event) => {
-      const parsed = parseEvent(String(event.data));
+      const raw = String(event.data);
+      try {
+        const json = JSON.parse(raw) as { type?: string };
+        if (json.type === "kiosk.printer.status") {
+          const printerEvent = json as KioskDisplayPrinterEvent;
+          setView((current) => applyPrinterEvent(current, printerEvent));
+          return;
+        }
+      } catch {
+        /* fall through */
+      }
+      const parsed = parseEvent(raw);
       if (!parsed) return;
       setView((current) => applyDisplayEvent(current, parsed));
     };

@@ -25,6 +25,7 @@ import { paramId } from "../utils/params";
 import { assertActiveKioskSession } from "../services/kiosk.service";
 import { applyJobTimeoutIfNeeded } from "../services/job-timeout.service";
 import { isKioskServiceOnline } from "../services/kiosk-status.service";
+import { resolvePrinterTelemetryByKioskId } from "../services/printer-telemetry.service";
 import { cancelPrintJob } from "../services/cancellation.service";
 import { retryFailedPrintJob } from "../services/retry-print-job.service";
 import {
@@ -129,14 +130,22 @@ printJobsRoutes.get("/print-jobs/:id", requireAuth, async (req, res, next) => {
     let kioskName: string | null = null;
     let kioskCode: string | null = null;
     let kioskServiceOnline: boolean | null = null;
+    let printerDisplayState: string | null = null;
     if (job.kioskId) {
       const [kiosk] = await db.select().from(kiosks).where(eq(kiosks.id, job.kioskId)).limit(1);
       kioskName = kiosk?.name ?? null;
       kioskCode = kiosk?.kioskCode ?? null;
       kioskServiceOnline = kiosk ? isKioskServiceOnline(kiosk) : false;
+      const telemetry = await resolvePrinterTelemetryByKioskId(job.kioskId);
+      printerDisplayState = telemetry.display_state;
     }
     ok(res, {
-      ...serializePrintJobDetail(job, { kioskName, kioskCode, kioskServiceOnline }),
+      ...serializePrintJobDetail(job, {
+        kioskName,
+        kioskCode,
+        kioskServiceOnline,
+        printerDisplayState,
+      }),
       documents: documents.map(serializePrintJobDocument),
     });
   } catch (e) {
@@ -254,15 +263,23 @@ printJobsRoutes.post("/print-jobs/:id/retry", requireAuth, async (req, res, next
     let kioskName: string | null = null;
     let kioskCode: string | null = null;
     let kioskServiceOnline: boolean | null = null;
+    let printerDisplayState: string | null = null;
     if (job.kioskId) {
       const [kiosk] = await db.select().from(kiosks).where(eq(kiosks.id, job.kioskId)).limit(1);
       kioskName = kiosk?.name ?? null;
       kioskCode = kiosk?.kioskCode ?? null;
       kioskServiceOnline = kiosk ? isKioskServiceOnline(kiosk) : false;
+      const telemetry = await resolvePrinterTelemetryByKioskId(job.kioskId);
+      printerDisplayState = telemetry.display_state;
     }
 
     ok(res, {
-      ...serializePrintJobDetail(job, { kioskName, kioskCode, kioskServiceOnline }),
+      ...serializePrintJobDetail(job, {
+        kioskName,
+        kioskCode,
+        kioskServiceOnline,
+        printerDisplayState,
+      }),
       documents: documents.map(serializePrintJobDocument),
     });
   } catch (e) {

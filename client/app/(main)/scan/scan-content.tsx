@@ -57,6 +57,7 @@ export default function ScanPage() {
   const [kiosk, setKiosk] = useState<Kiosk | null>(null);
   const [kioskToken, setKioskToken] = useState<string | null>(null);
   const [serviceOnline, setServiceOnline] = useState<boolean | null>(null);
+  const [printerStatusMessage, setPrinterStatusMessage] = useState<string | null>(null);
   const [jobs, setJobs] = useState<PrintJob[]>([]);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [jobsLoading, setJobsLoading] = useState(true);
@@ -77,8 +78,10 @@ export default function ScanPage() {
         `/kiosks/${encodeURIComponent(token)}/status`
       );
       setServiceOnline(status.service.online);
+      setPrinterStatusMessage(status.printer?.message ?? null);
     } catch {
       setServiceOnline(false);
+      setPrinterStatusMessage(null);
     }
   }, []);
 
@@ -217,6 +220,7 @@ export default function ScanPage() {
         setKiosk(null);
         setKioskToken(null);
         setServiceOnline(null);
+        setPrinterStatusMessage(null);
         connectHandledRef.current = null;
         await clearKioskServerSession();
         router.push(`/print/jobs/${firstReleasedId}`);
@@ -310,6 +314,11 @@ export default function ScanPage() {
                   </p>
                 </div>
               )}
+              {printerStatusMessage && serviceOnline !== false ? (
+                <p className="mt-2 text-xs text-amber-800 dark:text-amber-200">
+                  {printerStatusMessage}
+                </p>
+              ) : null}
             </div>
             <Button type="button" variant="outline" size="sm" onClick={disconnectKiosk}>
               Scan again

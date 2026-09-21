@@ -21,6 +21,22 @@ export type KioskDisplayEvent = {
   updatedAt: string;
 };
 
+export type KioskDisplayPrinterSnapshot = {
+  display_state: string;
+  connection_state: string;
+  operational_state: string;
+  reasons: string[];
+  telemetry_fresh: boolean;
+  updated_at: string | null;
+};
+
+export type KioskDisplayPrinterEvent = {
+  type: "kiosk.printer.status";
+  kioskCode: string;
+  printer: KioskDisplayPrinterSnapshot;
+  updatedAt: string;
+};
+
 export type KioskDisplayStateResponse = {
   kioskCode: string;
   kioskName: string;
@@ -28,6 +44,7 @@ export type KioskDisplayStateResponse = {
   state: KioskDisplayState;
   jobId: string | null;
   updatedAt: string;
+  printer: KioskDisplayPrinterSnapshot;
 };
 
 export type KioskDisplayViewState = {
@@ -37,6 +54,7 @@ export type KioskDisplayViewState = {
   scanUrl: string;
   jobId: string | null;
   updatedAt: string;
+  printer: KioskDisplayPrinterSnapshot | null;
 };
 
 /** Time on "Printed!" before returning to QR (collect-from-tray buffer). */

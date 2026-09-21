@@ -10,12 +10,14 @@ import {
   requeueUnacknowledgedJobsForKiosk,
 } from "../services/kiosk-dispatch.service";
 import { applyPiOutboundMessage } from "../services/pi-status.service";
+import { applyPrinterTelemetry } from "../services/printer-telemetry.service";
 import { wsLogger } from "../utils/logger";
 import {
   PiOutboundType,
   buildPongMessage,
   parseAgentAuthHeader,
   piOutboundMessageSchema,
+  piPrinterTelemetrySchema,
 } from "./kiosk-agent.protocol";
 import { getKioskAgentRegistry } from "./kiosk-agent.registry";
 import { clearInFlightKiosk } from "../services/kiosk-dispatch.service";
@@ -92,6 +94,16 @@ async function handleMessage(kioskId: string, raw: string) {
 
   const msg = parsed.data;
   if (msg.type === PiOutboundType.PONG) {
+    return;
+  }
+
+  if (msg.type === PiOutboundType.PRINTER_TELEMETRY) {
+    const telemetry = piPrinterTelemetrySchema.safeParse(json);
+    if (!telemetry.success) {
+      wsLogger.warn({ kioskId }, "ws invalid printer.telemetry");
+      return;
+    }
+    await applyPrinterTelemetry(kioskId, telemetry.data);
     return;
   }
 

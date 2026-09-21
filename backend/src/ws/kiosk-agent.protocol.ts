@@ -21,8 +21,58 @@ export const PiOutboundType = {
   JOB_COMPLETED: "job.completed",
   JOB_FAILED: "job.failed",
   AGENT_HEARTBEAT: "agent.heartbeat",
+  PRINTER_TELEMETRY: "printer.telemetry",
   PONG: "pong",
 } as const;
+
+const connectionStateSchema = z.enum(["ONLINE", "OFFLINE", "UNKNOWN"]);
+const operationalStateSchema = z.enum([
+  "IDLE",
+  "PRINTING",
+  "ERROR",
+  "PAPER_OUT",
+  "PAPER_JAM",
+  "TONER_LOW",
+  "TONER_OUT",
+  "COVER_OPEN",
+  "PAUSED",
+  "DISABLED",
+  "UNKNOWN",
+]);
+const printerDisplayStateSchema = z.enum([
+  "READY",
+  "PRINTING",
+  "OFFLINE",
+  "ERROR",
+  "PAPER_OUT",
+  "PAPER_JAM",
+  "TONER_LOW",
+  "TONER_OUT",
+  "COVER_OPEN",
+  "PAUSED",
+  "DISABLED",
+  "UNKNOWN",
+]);
+
+export const piPrinterTelemetrySchema = z.object({
+  type: z.literal(PiOutboundType.PRINTER_TELEMETRY),
+  agent_id: z.string().optional(),
+  event_id: z.string(),
+  sequence: z.number().int(),
+  timestamp: z.string(),
+  printer_name: z.string().optional(),
+  connection_state: connectionStateSchema,
+  operational_state: operationalStateSchema,
+  display_state: printerDisplayStateSchema,
+  reasons: z.array(z.string()).optional(),
+  raw_reasons: z.array(z.string()).optional(),
+  last_probe_at: z.string().optional(),
+  capabilities: z.record(z.unknown()).optional(),
+  is_heartbeat: z.boolean().optional(),
+  active_job_id: z.string().nullable().optional(),
+});
+
+export type PiPrinterTelemetryMessage = z.infer<typeof piPrinterTelemetrySchema>;
 
 export const piOutboundMessageSchema = z
   .object({

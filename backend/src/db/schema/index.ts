@@ -1,6 +1,7 @@
 export * from "./enums";
 export * from "./profiles";
 export * from "./kiosks";
+export * from "./kiosk-printer-state";
 export * from "./pricing-rules";
 export * from "./saved-files";
 export * from "./kiosk-sessions";

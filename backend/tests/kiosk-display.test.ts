@@ -62,6 +62,15 @@ const mockKiosk = {
 
 const expectedScanUrl = buildKioskScanUrl("pub-tok", env.FRONTEND_URL);
 
+const mockDisplayPrinter = {
+  display_state: "UNKNOWN",
+  connection_state: "UNKNOWN",
+  operational_state: "UNKNOWN",
+  reasons: [] as string[],
+  telemetry_fresh: false,
+  updated_at: null as string | null,
+};
+
 const idleDisplayState = {
   kioskCode: "KIOSK-001",
   kioskName: "Development Kiosk",
@@ -69,6 +78,7 @@ const idleDisplayState = {
   state: "IDLE" as const,
   jobId: null,
   updatedAt: new Date().toISOString(),
+  printer: mockDisplayPrinter,
 };
 
 function job(overrides: Record<string, unknown> = {}): TestPrintJob {

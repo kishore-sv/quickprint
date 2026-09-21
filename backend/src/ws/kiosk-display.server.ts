@@ -3,6 +3,7 @@ import { eq } from "drizzle-orm";
 import { db } from "../db";
 import { kiosks } from "../db/schema";
 import { getKioskDisplayState } from "../services/kiosk-display.service";
+import { KioskDisplayPrinterEventType } from "./kiosk-display.protocol";
 import {
   DISPLAY_SESSION_COOKIE,
   parseCookieHeader,
@@ -49,6 +50,14 @@ export async function handleKioskDisplayConnection(ws: WebSocket, req: UpgradeRe
 
   try {
     const state = await getKioskDisplayState(kiosk);
+    ws.send(
+      JSON.stringify({
+        type: KioskDisplayPrinterEventType.PRINTER_STATUS,
+        kioskCode: state.kioskCode,
+        printer: state.printer,
+        updatedAt: state.updatedAt,
+      })
+    );
     if (state.state !== "IDLE" && state.jobId) {
       const status =
         state.state === "RECEIVED"

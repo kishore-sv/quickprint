@@ -76,7 +76,7 @@ kiosksRoutes.get("/kiosks/:token/status", async (req, res, next) => {
     if (kiosk.status !== "ACTIVE") {
       throw new NotFoundError("Kiosk not found");
     }
-    ok(res, serializeKioskServiceStatus(kiosk));
+    ok(res, await serializeKioskServiceStatus(kiosk));
   } catch (e) {
     next(e);
   }

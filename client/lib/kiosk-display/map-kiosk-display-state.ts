@@ -1,5 +1,7 @@
 import type {
   KioskDisplayEvent,
+  KioskDisplayPrinterEvent,
+  KioskDisplayPrinterSnapshot,
   KioskDisplayState,
   KioskDisplayStateResponse,
   KioskDisplayViewState,
@@ -82,6 +84,7 @@ export function reconcileDisplayState(
       kioskName: server.kioskName,
       scanUrl: server.scanUrl,
       updatedAt: server.updatedAt,
+      printer: server.printer,
     };
   }
 
@@ -92,6 +95,23 @@ export function reconcileDisplayState(
     scanUrl: server.scanUrl,
     jobId: server.jobId,
     updatedAt: server.updatedAt,
+    printer: server.printer,
+  };
+}
+
+export function applyPrinterEvent(
+  current: KioskDisplayViewState,
+  event: KioskDisplayPrinterEvent
+): KioskDisplayViewState {
+  if (event.kioskCode !== current.kioskCode) return current;
+  const eventTime = new Date(event.updatedAt).getTime();
+  const printerTime = current.printer?.updated_at
+    ? new Date(current.printer.updated_at).getTime()
+    : 0;
+  if (eventTime < printerTime) return current;
+  return {
+    ...current,
+    printer: event.printer as KioskDisplayPrinterSnapshot,
   };
 }
 

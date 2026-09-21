@@ -61,6 +61,7 @@ export type PrintJobDetail = PrintJob & {
   pi_phase?: string | null;
   user_error_code?: string | null;
   kiosk_service_online?: boolean | null;
+  printer_display_state?: string | null;
   updated_at?: string;
   cleanup_status?: string | null;
   is_terminal?: boolean;
@@ -76,6 +77,11 @@ export type KioskServiceStatus = {
   service: {
     online: boolean;
     last_seen: string | null;
+  };
+  printer?: {
+    display_state: string;
+    telemetry_fresh: boolean;
+    message: string | null;
   };
 };
 

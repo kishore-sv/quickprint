@@ -40,6 +40,7 @@ const envSchema = z.object({
   KIOSK_AGENT_TOKEN_PEPPER: z.string().optional(),
   JOB_STUCK_TIMEOUT_MINUTES: z.coerce.number().default(30),
   KIOSK_HEARTBEAT_TIMEOUT_SECONDS: z.coerce.number().default(90),
+  PRINTER_TELEMETRY_STALE_SECONDS: z.coerce.number().default(30),
   KIOSK_DISPLAY_SESSION_TTL_DAYS: z.coerce.number().default(90),
 });
 

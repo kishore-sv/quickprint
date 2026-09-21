@@ -7,6 +7,13 @@ import { buildKioskScanUrl } from "../utils/kiosk-scan-url";
 import { applyJobTimeoutIfNeeded } from "./job-timeout.service";
 import { resolveDisplayStatus } from "./print-job-display.service";
 import { getKioskDisplayRegistry } from "../ws/kiosk-display.registry";
+import type { KioskDisplayPrinterSnapshot } from "../types/printer-telemetry";
+import {
+  resolvePrinterTelemetryByKioskId,
+  toKioskDisplayPrinterSnapshot,
+} from "./printer-telemetry.service";
+
+export type { KioskDisplayPrinterSnapshot };
 
 export const KIOSK_DISPLAY_COMPLETED_TTL_MS = 5300;
 export const KIOSK_DISPLAY_FAILED_TTL_MS = 7000;
@@ -41,6 +48,7 @@ export type KioskDisplayStateResponse = {
   state: KioskDisplayState;
   jobId: string | null;
   updatedAt: string;
+  printer: KioskDisplayPrinterSnapshot;
 };
 
 type JobRow = InferSelectModel<typeof printJobs>;
@@ -229,7 +237,12 @@ export async function getKioskDisplayState(
   if (job) {
     job = await applyJobTimeoutIfNeeded(job);
   }
-  return buildDisplayStateFromJob(kiosk, job);
+  const base = buildDisplayStateFromJob(kiosk, job);
+  const printerTelemetry = await resolvePrinterTelemetryByKioskId(kiosk.id);
+  return {
+    ...base,
+    printer: toKioskDisplayPrinterSnapshot(printerTelemetry),
+  };
 }
 
 export function buildKioskDisplayEvent(

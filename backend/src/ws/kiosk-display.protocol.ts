@@ -6,6 +6,10 @@ export const KioskDisplayEventType = {
   JOB_STATUS: "kiosk.job.status",
 } as const;
 
+export const KioskDisplayPrinterEventType = {
+  PRINTER_STATUS: "kiosk.printer.status",
+} as const;
+
 export const kioskDisplayEventSchema = z.object({
   type: z.literal(KioskDisplayEventType.JOB_STATUS),
   kioskCode: z.string(),

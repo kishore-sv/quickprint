@@ -7,6 +7,15 @@ import {
 } from "./map-kiosk-display-state";
 import type { KioskDisplayViewState } from "./types";
 
+const mockPrinter = {
+  display_state: "READY",
+  connection_state: "ONLINE",
+  operational_state: "IDLE",
+  reasons: [] as string[],
+  telemetry_fresh: true,
+  updated_at: new Date().toISOString(),
+};
+
 const base: KioskDisplayViewState = {
   state: "IDLE",
   kioskCode: "KIOSK-001",
@@ -14,6 +23,7 @@ const base: KioskDisplayViewState = {
   scanUrl: "http://localhost:3000/scan/tok",
   jobId: null,
   updatedAt: new Date().toISOString(),
+  printer: null,
 };
 
 describe("kiosk display state transitions", () => {
@@ -86,6 +96,7 @@ describe("reconciliation", () => {
       state: "PRINTING",
       jobId: "job-1",
       updatedAt: new Date().toISOString(),
+      printer: mockPrinter,
     });
     expect(reconciled.state).toBe("PRINTING");
     expect(reconciled.jobId).toBe("job-1");
@@ -102,6 +113,7 @@ describe("reconciliation", () => {
         state: "COMPLETED",
         jobId: "job-1",
         updatedAt: old,
+        printer: mockPrinter,
       }
     );
     expect(reconciled.state).toBe("IDLE");
@@ -124,6 +136,7 @@ describe("reconciliation", () => {
         state: "IDLE",
         jobId: null,
         updatedAt: new Date().toISOString(),
+        printer: mockPrinter,
       }
     );
     expect(reconciled.state).toBe("IDLE");
@@ -140,6 +153,7 @@ describe("reconciliation", () => {
         state: "IDLE",
         jobId: null,
         updatedAt: new Date().toISOString(),
+        printer: mockPrinter,
       }
     );
     expect(reconciled.state).toBe("IDLE");
@@ -157,6 +171,7 @@ describe("reconciliation", () => {
         state: "IDLE",
         jobId: null,
         updatedAt: new Date().toISOString(),
+        printer: mockPrinter,
       }
     );
     expect(reconciled.state).toBe("IDLE");
@@ -172,6 +187,7 @@ describe("reconciliation", () => {
       state: "FAILED",
       jobId: "job-1",
       updatedAt: old,
+      printer: mockPrinter,
     });
     expect(reconciled.state).toBe("IDLE");
     expect(reconciled.jobId).toBeNull();
