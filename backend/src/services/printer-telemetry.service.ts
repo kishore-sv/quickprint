@@ -8,10 +8,12 @@ import {
   OperationalState,
   PrinterDisplayState,
   type PrinterCapabilitiesJson,
+  type CustomerPrinterSnapshot,
   type KioskDisplayPrinterSnapshot,
   type ResolvedPrinterTelemetry,
 } from "../types/printer-telemetry";
 import { logOperationalEvent } from "./operational-log.service";
+import { logger } from "../utils/logger";
 import type { PiPrinterTelemetryMessage } from "../ws/kiosk-agent.protocol";
 import { getKioskDisplayRegistry } from "../ws/kiosk-display.registry";
 import { KioskDisplayPrinterEventType } from "../ws/kiosk-display.protocol";
@@ -131,6 +133,18 @@ export async function resolvePrinterTelemetryByKioskId(
   return resolvePrinterTelemetryForKiosk(row);
 }
 
+export function serializeKioskPrinterForCustomer(
+  resolved: ResolvedPrinterTelemetry
+): CustomerPrinterSnapshot {
+  return {
+    display_state: resolved.display_state,
+    connection_state: resolved.connection_state,
+    operational_state: resolved.operational_state,
+    telemetry_fresh: resolved.telemetry_fresh,
+    telemetry_last_seen_at: resolved.telemetry_last_seen_at,
+  };
+}
+
 /** Reset sequence guard when Pi opens a new agent WebSocket session (sequence restarts at 1). */
 export async function onAgentTelemetrySessionStart(kioskId: string): Promise<void> {
   const existing = await getKioskPrinterStateRow(kioskId);
@@ -155,7 +169,17 @@ async function applyPrinterTelemetryLocked(
   msg: PiPrinterTelemetryMessage
 ): Promise<void> {
   const existing = await getKioskPrinterStateRow(kioskId);
-  if (!acceptTelemetrySequence(existing?.lastSequence, msg.sequence)) {
+  const lastSequence = existing?.lastSequence;
+  if (!acceptTelemetrySequence(lastSequence, msg.sequence)) {
+    logger.warn(
+      {
+        kioskId,
+        lastSequence,
+        incomingSequence: msg.sequence,
+        printerName: msg.printer_name,
+      },
+      "printer telemetry rejected (sequence)"
+    );
     return;
   }
 
@@ -163,6 +187,7 @@ async function applyPrinterTelemetryLocked(
   const probeAt = parseIsoDate(msg.last_probe_at);
   const prevDisplay = existing?.displayState;
   const prevConnection = existing?.connectionState;
+  const prevOperational = existing?.operationalState;
 
   const stateChanged =
     !existing ||
@@ -170,6 +195,27 @@ async function applyPrinterTelemetryLocked(
     existing.operationalState !== msg.operational_state ||
     existing.displayState !== msg.display_state ||
     JSON.stringify(existing.reasons) !== JSON.stringify(msg.reasons ?? []);
+
+  const meaningfulUpdate =
+    !msg.is_heartbeat ||
+    prevDisplay !== msg.display_state ||
+    prevConnection !== msg.connection_state ||
+    prevOperational !== msg.operational_state;
+  if (meaningfulUpdate) {
+    logger.info(
+      {
+        kioskId,
+        printerName: msg.printer_name,
+        connectionState: msg.connection_state,
+        operationalState: msg.operational_state,
+        displayState: msg.display_state,
+        sequence: msg.sequence,
+        accepted: true,
+        isHeartbeat: Boolean(msg.is_heartbeat),
+      },
+      "printer telemetry received"
+    );
+  }
 
   const values = {
     kioskId,

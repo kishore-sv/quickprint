@@ -15,7 +15,7 @@ import { retryPrintJob } from "@/lib/retry-print-job";
 import { mapPrintJobStatus, STEP_LABELS } from "@/lib/print-job-status";
 import { usePrintJobPoll } from "@/lib/use-print-job-poll";
 import { cn } from "@/lib/utils";
-import { printerDisplayStateLabel } from "@/lib/printer-display-state";
+import { customerPrintJobPrinterLine } from "@/lib/printer-display-state";
 import { toast } from "@/components/ui/toast";
 
 export default function PrintJobStatusPage() {
@@ -76,6 +76,7 @@ export default function PrintJobStatusPage() {
   const pickupMessage = isSuccess ? printPickupMessage(job) : message;
   const canCancel = isCancellablePaidJob(job);
   const canRetry = isRetryableFailedJob(job);
+  const printerLine = customerPrintJobPrinterLine(job);
 
   const handleRetry = async () => {
     setRetrying(true);
@@ -183,15 +184,9 @@ export default function PrintJobStatusPage() {
         </p>
       )}
 
-      {job.printer_display_state &&
-        !terminal &&
-        job.printer_display_state !== "READY" &&
-        job.printer_display_state !== "UNKNOWN" && (
-          <p className="text-sm text-muted-foreground">
-            {printerDisplayStateLabel(job.printer_display_state) ??
-              job.printer_display_state}
-          </p>
-        )}
+      {printerLine ? (
+        <p className="text-sm text-muted-foreground">{printerLine}</p>
+      ) : null}
 
       <ol className="flex flex-col gap-3">
         {steps.map((step) => {

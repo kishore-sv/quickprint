@@ -1,4 +1,5 @@
 import type { InferSelectModel } from "drizzle-orm";
+import type { CustomerPrinterSnapshot } from "../types/printer-telemetry";
 import type { kiosks, printJobDocuments, printJobs, refunds, savedFiles } from "../db/schema";
 import type { PrintJobListRow } from "../services/print-job.service";
 import {
@@ -167,6 +168,7 @@ export function serializePrintJobDetail(
     kioskCode?: string | null;
     kioskServiceOnline?: boolean | null;
     printerDisplayState?: string | null;
+    printer?: CustomerPrinterSnapshot | null;
   }
 ) {
   const base = basePrintJobFields(job);
@@ -197,6 +199,7 @@ export function serializePrintJobDetail(
     kiosk_code: options?.kioskCode ?? null,
     kiosk_service_online: options?.kioskServiceOnline ?? null,
     printer_display_state: options?.printerDisplayState ?? null,
+    printer: options?.printer ?? null,
     updated_at: jobUpdatedAt(jobForMessage),
     cleanup_status: job.cleanupStatus ?? null,
     is_terminal: isTerminalDisplayStatus(displayStatus),

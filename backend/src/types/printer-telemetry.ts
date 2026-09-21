@@ -67,3 +67,12 @@ export type ResolvedPrinterTelemetry = {
   telemetry_last_seen_at: string | null;
   updated_at: string | null;
 };
+
+/** Customer-facing printer snapshot on print-job detail (same resolver as kiosk display). */
+export type CustomerPrinterSnapshot = {
+  display_state: string;
+  connection_state: string;
+  operational_state: string;
+  telemetry_fresh: boolean;
+  telemetry_last_seen_at: string | null;
+};

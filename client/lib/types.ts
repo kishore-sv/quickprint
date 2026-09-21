@@ -62,6 +62,13 @@ export type PrintJobDetail = PrintJob & {
   user_error_code?: string | null;
   kiosk_service_online?: boolean | null;
   printer_display_state?: string | null;
+  printer?: {
+    display_state: string;
+    connection_state: string;
+    operational_state: string;
+    telemetry_fresh: boolean;
+    telemetry_last_seen_at: string | null;
+  } | null;
   updated_at?: string;
   cleanup_status?: string | null;
   is_terminal?: boolean;
