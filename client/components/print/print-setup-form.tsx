@@ -467,9 +467,9 @@ export function PrintSetupForm({
         </div>
 
         <div
-          className="min-h-[148px] max-h-[min(50vh,320px)] min-w-0 overflow-x-hidden overflow-y-auto overscroll-y-contain rounded-xl border border-border/60 bg-muted/20 p-3 [-webkit-overflow-scrolling:touch] [touch-action:pan-y]"
+          className="min-h-[156px] min-w-0 overflow-x-auto overflow-y-hidden overscroll-x-contain rounded-xl border border-border/60 bg-muted/20 p-3 [-ms-overflow-style:none] [-webkit-overflow-scrolling:touch] [overscroll-behavior-x:contain] [overscroll-behavior-y:none] [scrollbar-width:none] [touch-action:pan-x] [&::-webkit-scrollbar]:hidden"
         >
-          <div className="flex flex-wrap gap-3">
+          <div className="flex w-max flex-nowrap gap-3">
             {thumbsLoading &&
               Array.from({ length: Math.min(pageCount, 4) }).map((_, i) => (
                 <Skeleton key={i} className="h-[148px] w-[108px] shrink-0 rounded-xl" />
@@ -936,8 +936,7 @@ export function PrintSetupForm({
         <DialogContent
           className={cn(
             "flex flex-col gap-1 overflow-hidden p-2 sm:gap-2",
-            "w-[calc(100vw-1rem)] max-w-[calc(100vw-1rem)]",
-            "max-sm:top-auto max-sm:right-0 max-sm:bottom-0 max-sm:left-0 max-sm:h-[min(88dvh,100%)] max-sm:max-h-[88dvh] max-sm:translate-x-0 max-sm:translate-y-0 max-sm:rounded-b-none max-sm:rounded-t-2xl",
+            "w-[calc(100vw-1rem)] max-w-[calc(100vw-1rem)] max-h-[min(88dvh,100%)]",
             "sm:max-h-[92dvh] sm:w-full sm:max-w-lg md:max-w-xl"
           )}
         >
@@ -949,8 +948,8 @@ export function PrintSetupForm({
           <div
             className={cn(
               "relative min-h-0 w-full px-6 sm:px-10",
-              "h-[calc(88dvh-3.75rem)] max-sm:shrink-0",
-              "sm:h-[min(72dvh,680px)] sm:max-h-[calc(92dvh-4.5rem)]"
+              "h-[min(72dvh,680px)] max-h-[calc(88dvh-3.75rem)]",
+              "sm:max-h-[calc(92dvh-4.5rem)]"
             )}
           >
             {previewLoading ? (
@@ -968,35 +967,17 @@ export function PrintSetupForm({
                   {Array.from({ length: pageCount }, (_, i) => i + 1).map((page) => (
                     <CarouselItem key={page} className="h-full pl-2">
                       <div
-                        className={cn(
-                          "h-full w-full overflow-y-auto overscroll-contain rounded-lg border bg-white shadow-sm [-webkit-overflow-scrolling:touch]",
-                          "sm:flex sm:items-center sm:justify-center sm:overflow-hidden"
-                        )}
+                        className="flex h-full w-full items-center justify-center overflow-hidden rounded-lg border bg-white p-2 shadow-sm sm:p-3"
                       >
-                        <div
-                          className={cn(
-                            "flex min-h-full justify-center p-2",
-                            "sm:h-full sm:min-h-0 sm:w-full sm:items-center sm:p-3"
-                          )}
-                        >
-                          {previewImages[page] ? (
-                            <img
-                              src={previewImages[page]}
-                              alt={`Page ${page}`}
-                              className={cn(
-                                "block h-auto w-full max-w-full object-contain",
-                                "sm:mx-auto sm:h-auto sm:max-h-full sm:w-auto sm:max-w-full"
-                              )}
-                            />
-                          ) : (
-                            <Skeleton
-                              className={cn(
-                                "aspect-[1/1.414] w-full max-w-md",
-                                "sm:max-h-full sm:w-auto"
-                              )}
-                            />
-                          )}
-                        </div>
+                        {previewImages[page] ? (
+                          <img
+                            src={previewImages[page]}
+                            alt={`Page ${page}`}
+                            className="mx-auto block max-h-full max-w-full object-contain"
+                          />
+                        ) : (
+                          <Skeleton className="aspect-[1/1.414] max-h-full w-auto max-w-full" />
+                        )}
                       </div>
                     </CarouselItem>
                   ))}
