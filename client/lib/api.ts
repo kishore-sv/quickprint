@@ -1,5 +1,5 @@
 import { API_BASE_URL, AUTH_BASE_URL, authClient } from "@/lib/auth-client";
-import type { PrintJobListResponse } from "@/lib/types";
+import type { PrintJobDetail, PrintJobListResponse } from "@/lib/types";
 
 const API_URL = API_BASE_URL;
 
@@ -95,11 +95,20 @@ export async function apiFetch<T>(
     credentials: "include",
   });
 
+  if (res.status === 304) {
+    throw new ApiError("Not modified", 304, "NOT_MODIFIED");
+  }
+
   if (!res.ok) {
     throw await apiErrorFromResponse(res);
   }
 
   return parseJsonResponse<T>(res);
+}
+
+/** GET print job detail for status polling — bypasses browser HTTP cache (avoids 304). */
+export async function fetchPrintJobDetail(jobId: string): Promise<PrintJobDetail> {
+  return apiFetch<PrintJobDetail>(`/print-jobs/${jobId}`, { cache: "no-store" });
 }
 
 export async function apiFetchPublic<T>(path: string): Promise<T> {

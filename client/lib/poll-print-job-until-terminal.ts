@@ -1,4 +1,4 @@
-import { apiFetch } from "@/lib/api";
+import { fetchPrintJobDetail } from "@/lib/api";
 import { isPrintJobTerminal } from "@/lib/map-print-job-status";
 import type { PrintJobDetail } from "@/lib/types";
 
@@ -9,7 +9,7 @@ export async function pollPrintJobUntilTerminal(
   onUpdate?: (job: PrintJobDetail) => void
 ): Promise<PrintJobDetail> {
   const load = async () => {
-    const job = await apiFetch<PrintJobDetail>(`/print-jobs/${jobId}`);
+    const job = await fetchPrintJobDetail(jobId);
     onUpdate?.(job);
     return job;
   };

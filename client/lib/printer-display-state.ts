@@ -75,5 +75,9 @@ export function customerPrintJobPrinterLine(
     return null;
   }
 
+  if (job.is_terminal && display_state === "PRINTING") {
+    return printerDisplayStateLabel("READY");
+  }
+
   return printerDisplayStateLabel(display_state);
 }

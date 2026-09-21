@@ -22,7 +22,7 @@ export default function PrintJobStatusPage() {
   const params = useParams();
   const router = useRouter();
   const jobId = typeof params.jobId === "string" ? params.jobId : "";
-  const { job, error, loading, resumePolling } = usePrintJobPoll(jobId);
+  const { job, error, pollWarning, loading, resumePolling } = usePrintJobPoll(jobId);
   const completionSoundPlayed = useRef(false);
   const [cancelOpen, setCancelOpen] = useState(false);
   const [cancelling, setCancelling] = useState(false);
@@ -45,7 +45,7 @@ export default function PrintJobStatusPage() {
     playPrintCompleteSound();
   }, [status]);
 
-  if (error) {
+  if (!job && error) {
     return (
       <div className={cn("py-10", pageMaxWidthClass)}>
         <p className="text-destructive text-sm">{error}</p>
@@ -220,6 +220,12 @@ export default function PrintJobStatusPage() {
       {!terminal && (
         <p className="text-xs text-muted-foreground">Updating automatically…</p>
       )}
+
+      {pollWarning ? (
+        <p className="text-xs text-amber-800 dark:text-amber-200" role="status">
+          {pollWarning}. Showing last known status.
+        </p>
+      ) : null}
 
       {isSuccess && (
         <Button

@@ -62,6 +62,23 @@ describe("customerPrintJobPrinterLine", () => {
     expect(line).toBe("Printer status unavailable");
   });
 
+  test("terminal job with stale PRINTING telemetry shows Printer ready", () => {
+    const line = customerPrintJobPrinterLine(
+      job({
+        kiosk_service_online: true,
+        is_terminal: true,
+        printer: {
+          display_state: "PRINTING",
+          connection_state: "ONLINE",
+          operational_state: "PRINTING",
+          telemetry_fresh: true,
+          telemetry_last_seen_at: new Date().toISOString(),
+        },
+      })
+    );
+    expect(line).toBe("Printer ready");
+  });
+
   test("fresh READY after terminal job shows Printer ready", () => {
     const line = customerPrintJobPrinterLine(
       job({
