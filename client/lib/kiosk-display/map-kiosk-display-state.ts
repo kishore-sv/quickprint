@@ -85,6 +85,7 @@ export function reconcileDisplayState(
       scanUrl: server.scanUrl,
       updatedAt: server.updatedAt,
       printer: server.printer,
+      printerSequence: Date.parse(server.updatedAt),
     };
   }
 
@@ -96,6 +97,7 @@ export function reconcileDisplayState(
     jobId: server.jobId,
     updatedAt: server.updatedAt,
     printer: server.printer,
+    printerSequence: Date.parse(server.updatedAt),
   };
 }
 
@@ -104,14 +106,19 @@ export function applyPrinterEvent(
   event: KioskDisplayPrinterEvent
 ): KioskDisplayViewState {
   if (event.kioskCode !== current.kioskCode) return current;
+  const currentSeq = current.printerSequence ?? 0;
+  if (event.sequence != null && event.sequence <= currentSeq) {
+    return current;
+  }
   const eventTime = new Date(event.updatedAt).getTime();
   const printerTime = current.printer?.updated_at
     ? new Date(current.printer.updated_at).getTime()
     : 0;
-  if (eventTime < printerTime) return current;
+  if (event.sequence == null && eventTime < printerTime) return current;
   return {
     ...current,
     printer: event.printer as KioskDisplayPrinterSnapshot,
+    printerSequence: event.sequence ?? eventTime,
   };
 }
 

@@ -35,6 +35,7 @@ export type KioskDisplayPrinterEvent = {
   kioskCode: string;
   printer: KioskDisplayPrinterSnapshot;
   updatedAt: string;
+  sequence?: number;
 };
 
 export type KioskDisplayStateResponse = {
@@ -55,6 +56,8 @@ export type KioskDisplayViewState = {
   jobId: string | null;
   updatedAt: string;
   printer: KioskDisplayPrinterSnapshot | null;
+  /** Monotonic printer WS event ordering (sequence or timestamp). */
+  printerSequence?: number;
 };
 
 /** Time on "Printed!" before returning to QR (collect-from-tray buffer). */

@@ -120,5 +120,13 @@ export function useKioskDisplay(kioskCode: string, enabled: boolean) {
     return () => clearInterval(interval);
   }, [enabled, reconcile]);
 
+  useEffect(() => {
+    if (!enabled) return;
+    const syncInterval = setInterval(() => {
+      void reconcile();
+    }, 20_000);
+    return () => clearInterval(syncInterval);
+  }, [enabled, reconcile]);
+
   return view;
 }

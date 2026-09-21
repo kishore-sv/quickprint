@@ -24,6 +24,7 @@ import { mapPrintJobStatus } from "@/lib/map-print-job-status";
 import { PrintJobStatusChip } from "@/components/print/print-job-status-chip";
 import { pageMaxWidthClass } from "@/lib/layout";
 import type { Kiosk, KioskServiceStatus, PrintJob } from "@/lib/types";
+import { printerDisplayStateLabel } from "@/lib/printer-display-state";
 import { cn } from "@/lib/utils";
 import { toast } from "@/components/ui/toast";
 import { PlusIcon } from "lucide-react";
@@ -34,6 +35,39 @@ const QrScanner = dynamic(
 );
 
 const SUPPORT_EMAIL = "help@quickprint.fun";
+
+const SCAN_RELEASE_IN_PROGRESS_KEY = "quickprint.scan.releaseInProgress";
+const SCAN_RELEASE_JOB_ID_KEY = "quickprint.scan.releaseJobId";
+
+function readScanReleaseJobId(): string | null {
+  if (typeof window === "undefined") return null;
+  try {
+    return sessionStorage.getItem(SCAN_RELEASE_JOB_ID_KEY);
+  } catch {
+    return null;
+  }
+}
+
+function scanReleaseNavPending(): boolean {
+  if (typeof window === "undefined") return false;
+  try {
+    return (
+      sessionStorage.getItem(SCAN_RELEASE_IN_PROGRESS_KEY) === "1" ||
+      Boolean(sessionStorage.getItem(SCAN_RELEASE_JOB_ID_KEY))
+    );
+  } catch {
+    return false;
+  }
+}
+
+function clearScanReleaseNavKeys(): void {
+  try {
+    sessionStorage.removeItem(SCAN_RELEASE_IN_PROGRESS_KEY);
+    sessionStorage.removeItem(SCAN_RELEASE_JOB_ID_KEY);
+  } catch {
+    /* ignore */
+  }
+}
 
 function parseKioskScan(text: string): string | null {
   const trimmed = text.trim();
@@ -58,11 +92,13 @@ export default function ScanPage() {
   const [kioskToken, setKioskToken] = useState<string | null>(null);
   const [serviceOnline, setServiceOnline] = useState<boolean | null>(null);
   const [printerStatusMessage, setPrinterStatusMessage] = useState<string | null>(null);
+  const [printerDisplayState, setPrinterDisplayState] = useState<string | null>(null);
   const [jobs, setJobs] = useState<PrintJob[]>([]);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [jobsLoading, setJobsLoading] = useState(true);
   const [kioskLoading, setKioskLoading] = useState(false);
   const [releasing, setReleasing] = useState(false);
+  const [releaseNavPending, setReleaseNavPending] = useState(scanReleaseNavPending);
   const scanLock = useRef(false);
   const releaseLock = useRef(false);
   const connectHandledRef = useRef<string | null>(null);
@@ -79,9 +115,12 @@ export default function ScanPage() {
       );
       setServiceOnline(status.service.online);
       setPrinterStatusMessage(status.printer?.message ?? null);
+      setPrinterDisplayState(status.printer?.display_state ?? null);
     } catch {
       setServiceOnline(false);
-      setPrinterStatusMessage(null);
+        setPrinterStatusMessage(null);
+        setPrinterDisplayState(null);
+      setPrinterDisplayState(null);
     }
   }, []);
 
@@ -147,6 +186,14 @@ export default function ScanPage() {
   }, [searchParams, kiosk, router, loadKioskFromScan]);
 
   useEffect(() => {
+    const pendingJobId = readScanReleaseJobId();
+    if (!pendingJobId) return;
+    clearScanReleaseNavKeys();
+    setReleaseNavPending(true);
+    router.replace(`/print/jobs/${pendingJobId}`);
+  }, [router]);
+
+  useEffect(() => {
     return () => {
       void clearKioskServerSession();
     };
@@ -193,10 +240,17 @@ export default function ScanPage() {
 
     releaseLock.current = true;
     setReleasing(true);
+    setReleaseNavPending(true);
+    try {
+      sessionStorage.setItem(SCAN_RELEASE_IN_PROGRESS_KEY, "1");
+    } catch {
+      /* ignore */
+    }
     const ids = [...selectedIds];
     let succeeded = 0;
     let firstReleasedId: string | null = null;
     let lastError: string | null = null;
+    let navigatedToJob = false;
     try {
       for (const jobId of ids) {
         try {
@@ -217,13 +271,14 @@ export default function ScanPage() {
             type: "success",
           });
         }
-        setKiosk(null);
-        setKioskToken(null);
-        setServiceOnline(null);
-        setPrinterStatusMessage(null);
-        connectHandledRef.current = null;
-        await clearKioskServerSession();
-        router.push(`/print/jobs/${firstReleasedId}`);
+        navigatedToJob = true;
+        try {
+          sessionStorage.setItem(SCAN_RELEASE_JOB_ID_KEY, firstReleasedId);
+          sessionStorage.removeItem(SCAN_RELEASE_IN_PROGRESS_KEY);
+        } catch {
+          /* ignore */
+        }
+        router.replace(`/print/jobs/${firstReleasedId}`);
         return;
       }
       if (lastError) {
@@ -235,27 +290,39 @@ export default function ScanPage() {
       }
       await loadReadyJobs();
     } finally {
-      setReleasing(false);
-      releaseLock.current = false;
+      if (!navigatedToJob) {
+        clearScanReleaseNavKeys();
+        setReleaseNavPending(false);
+        setReleasing(false);
+        releaseLock.current = false;
+      }
     }
   };
 
   const selectedCount = selectedIds.size;
-  const showPrintBar = Boolean(kiosk) && jobs.length > 0;
+  const showPrintBar = Boolean(kiosk) && jobs.length > 0 && !releaseNavPending;
   const printDisabled = releasing || serviceOnline === false;
+  const showQrScanner = !kiosk && !kioskLoading && !releasing && !releaseNavPending;
 
   return (
     <div className={cn("flex flex-col gap-5", showPrintBar && "pb-32")}>
       <div className="space-y-1">
         <h1 className="font-heading text-xl font-semibold">Scan kiosk</h1>
-        {!kiosk && (
+        {showQrScanner && (
           <p className="text-sm text-muted-foreground">
             Scan the QR on the printer to connect, then choose jobs to print.
           </p>
         )}
       </div>
 
-      {!kiosk && (
+      {releaseNavPending && !kiosk && (
+        <div className="flex flex-col items-center justify-center gap-2 py-16">
+          <Spinner className="size-8 text-primary" />
+          <p className="text-sm font-medium">Opening print status…</p>
+        </div>
+      )}
+
+      {showQrScanner && (
         <Card
           className={cn(
             "relative mx-auto w-full overflow-hidden py-0 shadow-none",
@@ -263,12 +330,6 @@ export default function ScanPage() {
             "md:max-w-[280px] lg:max-w-[300px]"
           )}
         >
-          {kioskLoading && (
-            <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-2 bg-background/85">
-              <Spinner className="size-8 text-primary" />
-              <p className="text-sm font-medium">Connecting…</p>
-            </div>
-          )}
           <CardContent className="p-0">
             <div className="aspect-square w-full">
               <QrScanner
@@ -284,6 +345,21 @@ export default function ScanPage() {
               />
             </div>
           </CardContent>
+        </Card>
+      )}
+
+      {kioskLoading && !kiosk && !releaseNavPending && (
+        <Card
+          className={cn(
+            "relative mx-auto w-full overflow-hidden py-0 shadow-none",
+            "max-w-[min(100%,20rem)] sm:max-w-[min(100%,22rem)]",
+            "md:max-w-[280px] lg:max-w-[300px]"
+          )}
+        >
+          <div className="flex aspect-square w-full flex-col items-center justify-center gap-2 bg-muted/30">
+            <Spinner className="size-8 text-primary" />
+            <p className="text-sm font-medium">Connecting…</p>
+          </div>
         </Card>
       )}
 
@@ -314,6 +390,11 @@ export default function ScanPage() {
                   </p>
                 </div>
               )}
+              {printerDisplayState && serviceOnline !== false ? (
+                <Badge variant="outline" className="mt-2">
+                  {printerDisplayStateLabel(printerDisplayState) ?? printerDisplayState}
+                </Badge>
+              ) : null}
               {printerStatusMessage && serviceOnline !== false ? (
                 <p className="mt-2 text-xs text-amber-800 dark:text-amber-200">
                   {printerStatusMessage}

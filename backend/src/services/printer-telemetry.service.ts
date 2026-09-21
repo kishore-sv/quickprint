@@ -15,8 +15,15 @@ import { logOperationalEvent } from "./operational-log.service";
 import type { PiPrinterTelemetryMessage } from "../ws/kiosk-agent.protocol";
 import { getKioskDisplayRegistry } from "../ws/kiosk-display.registry";
 import { KioskDisplayPrinterEventType } from "../ws/kiosk-display.protocol";
-
 const kioskTelemetryChains = new Map<string, Promise<unknown>>();
+
+export function acceptTelemetrySequence(
+  lastSequence: number | null | undefined,
+  incomingSequence: number
+): boolean {
+  if (lastSequence == null) return true;
+  return incomingSequence > lastSequence;
+}
 
 function withKioskTelemetryLock<T>(kioskId: string, fn: () => Promise<T>): Promise<T> {
   const prev = kioskTelemetryChains.get(kioskId) ?? Promise.resolve();
@@ -65,13 +72,15 @@ export function toKioskDisplayPrinterSnapshot(
 
 export async function broadcastKioskPrinterStatus(
   kiosk: InferSelectModel<typeof kiosks>,
-  resolved: ResolvedPrinterTelemetry
+  resolved: ResolvedPrinterTelemetry,
+  sequence?: number
 ): Promise<void> {
   const event = {
     type: KioskDisplayPrinterEventType.PRINTER_STATUS,
     kioskCode: kiosk.kioskCode,
     printer: toKioskDisplayPrinterSnapshot(resolved),
     updatedAt: new Date().toISOString(),
+    sequence: sequence ?? Date.now(),
   };
   getKioskDisplayRegistry().broadcast(kiosk.id, JSON.stringify(event));
 }
@@ -134,7 +143,7 @@ async function applyPrinterTelemetryLocked(
   msg: PiPrinterTelemetryMessage
 ): Promise<void> {
   const existing = await getKioskPrinterStateRow(kioskId);
-  if (existing && msg.sequence <= existing.lastSequence) {
+  if (!acceptTelemetrySequence(existing?.lastSequence, msg.sequence)) {
     return;
   }
 
@@ -222,7 +231,9 @@ async function applyPrinterTelemetryLocked(
     }
   }
 
-  if (stateChanged || msg.is_heartbeat) {
+  const shouldBroadcast =
+    stateChanged || msg.is_heartbeat || !existing;
+  if (shouldBroadcast) {
     const [kiosk] = await db.select().from(kiosks).where(eq(kiosks.id, kioskId)).limit(1);
     if (kiosk) {
       const resolved = resolvePrinterTelemetryForKiosk({
@@ -230,7 +241,7 @@ async function applyPrinterTelemetryLocked(
         updatedAt: now,
         telemetryLastSeenAt: now,
       } as InferSelectModel<typeof kioskPrinterState>);
-      await broadcastKioskPrinterStatus(kiosk, resolved);
+      await broadcastKioskPrinterStatus(kiosk, resolved, msg.sequence);
     }
   }
 }

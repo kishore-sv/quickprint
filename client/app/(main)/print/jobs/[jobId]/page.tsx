@@ -15,6 +15,7 @@ import { retryPrintJob } from "@/lib/retry-print-job";
 import { mapPrintJobStatus, STEP_LABELS } from "@/lib/print-job-status";
 import { usePrintJobPoll } from "@/lib/use-print-job-poll";
 import { cn } from "@/lib/utils";
+import { printerDisplayStateLabel } from "@/lib/printer-display-state";
 import { toast } from "@/components/ui/toast";
 
 export default function PrintJobStatusPage() {
@@ -28,6 +29,15 @@ export default function PrintJobStatusPage() {
   const [retrying, setRetrying] = useState(false);
 
   const status = job ? mapPrintJobStatus(job).status : null;
+
+  useEffect(() => {
+    try {
+      sessionStorage.removeItem("quickprint.scan.releaseInProgress");
+      sessionStorage.removeItem("quickprint.scan.releaseJobId");
+    } catch {
+      /* ignore */
+    }
+  }, []);
 
   useEffect(() => {
     if (status !== "COMPLETED" || completionSoundPlayed.current) return;
@@ -172,6 +182,16 @@ export default function PrintJobStatusPage() {
           Kiosk temporarily unavailable. Your print will start when the kiosk reconnects.
         </p>
       )}
+
+      {job.printer_display_state &&
+        !terminal &&
+        job.printer_display_state !== "READY" &&
+        job.printer_display_state !== "UNKNOWN" && (
+          <p className="text-sm text-muted-foreground">
+            {printerDisplayStateLabel(job.printer_display_state) ??
+              job.printer_display_state}
+          </p>
+        )}
 
       <ol className="flex flex-col gap-3">
         {steps.map((step) => {

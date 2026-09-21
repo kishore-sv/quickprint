@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import {
   applyDisplayEvent,
+  applyPrinterEvent,
   buildProgressSteps,
   reconcileDisplayState,
   shouldReturnToIdle,
@@ -24,6 +25,7 @@ const base: KioskDisplayViewState = {
   jobId: null,
   updatedAt: new Date().toISOString(),
   printer: null,
+  printerSequence: 0,
 };
 
 describe("kiosk display state transitions", () => {
@@ -191,6 +193,24 @@ describe("reconciliation", () => {
     });
     expect(reconciled.state).toBe("IDLE");
     expect(reconciled.jobId).toBeNull();
+  });
+});
+
+describe("printer telemetry events", () => {
+  test("ignores out-of-order sequence", () => {
+    const withPrinter = {
+      ...base,
+      printer: mockPrinter,
+      printerSequence: 200,
+    };
+    const older = applyPrinterEvent(withPrinter, {
+      type: "kiosk.printer.status",
+      kioskCode: "KIOSK-001",
+      printer: { ...mockPrinter, display_state: "OFFLINE" },
+      updatedAt: new Date().toISOString(),
+      sequence: 100,
+    });
+    expect(older.printer?.display_state).toBe("READY");
   });
 });
 
