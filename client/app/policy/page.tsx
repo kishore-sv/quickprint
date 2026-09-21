@@ -97,8 +97,9 @@ export default function PrivacyPolicyPage() {
         </ul>
         <p>
           The Service is designed for PDF printing. Supported upload formats are PDF, DOC, DOCX,
-          JPG, and PNG. Images (JPEG and PNG) are converted to PDF in the client before upload.
-          Word documents (DOC and DOCX) are converted to PDF on the server before storage. All
+          XLS, XLSX, ODS, CSV, TXT, RTF, JPG, and PNG. Images (JPEG and PNG) are converted to PDF
+          in the client before upload. Office and text uploads (including Word, Excel,
+          spreadsheets, CSV, TXT, and RTF) are converted to PDF on the server before storage. All
           stored and printed files are PDF.
         </p>
         <p>

@@ -72,4 +72,35 @@ describe("file content validation", () => {
     const png = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x00]);
     expect(detectUploadKind("image/png", "photo.png", png)).toBe("image");
   });
+
+  test("detects xlsx and xls uploads", () => {
+    const xlsx = Buffer.from("PK\x03\x04xl/workbook.xml[Content_Types].xml");
+    expect(
+      detectUploadKind(
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        "report.xlsx",
+        xlsx
+      )
+    ).toBe("xlsx");
+
+    const xls = Buffer.alloc(8);
+    xls.set([0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1, 0x1a, 0xe1]);
+    expect(detectUploadKind("application/vnd.ms-excel", "report.xls", xls)).toBe("xls");
+  });
+
+  test("detects txt csv and rtf uploads", () => {
+    expect(detectUploadKind("text/plain", "notes.txt", Buffer.from("Hello world"))).toBe("txt");
+    expect(detectUploadKind("text/csv", "data.csv", Buffer.from("a,b\n1,2"))).toBe("csv");
+    expect(detectUploadKind("application/rtf", "doc.rtf", Buffer.from("{\\rtf1\\ansi"))).toBe("rtf");
+  });
+
+  test("distinguishes OLE doc from xls by extension", () => {
+    const ole = Buffer.alloc(8);
+    ole.set([0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1, 0x1a, 0xe1]);
+    expect(detectUploadKind("application/msword", "a.doc", ole)).toBe("doc");
+    expect(detectUploadKind("application/vnd.ms-excel", "a.xls", ole)).toBe("xls");
+    expect(() => detectUploadKind("application/octet-stream", "mystery.bin", ole)).toThrow(
+      ValidationError
+    );
+  });
 });

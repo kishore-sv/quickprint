@@ -281,7 +281,7 @@ certbot --version
 libreoffice --version
 ```
 
-LibreOffice is required on the **backend EC2 server** for DOC/DOCX → PDF conversion. It is **not** required on Raspberry Pi kiosks or in the browser client.
+LibreOffice is required on the **backend EC2 server** for DOC/DOCX, XLS/XLSX, ODS, CSV, and RTF → PDF conversion. Plain TXT is converted to PDF in the backend without LibreOffice. It is **not** required on Raspberry Pi kiosks or in the browser client.
 
 ---
 

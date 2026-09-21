@@ -42,6 +42,9 @@ export async function validatePdf(content: Buffer): Promise<{ pageCount: number;
   return { pageCount, fileHash };
 }
 
+export const SUPPORTED_FORMATS_ERROR_LABEL =
+  "PDF, DOC, DOCX, XLS, XLSX, ODS, CSV, TXT, RTF, JPG, JPEG, PNG";
+
 export const ALLOWED_UPLOAD_MIMES = new Set([
   "application/pdf",
   "image/jpeg",
@@ -49,9 +52,31 @@ export const ALLOWED_UPLOAD_MIMES = new Set([
   "image/png",
   "application/msword",
   "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  "application/vnd.ms-excel",
+  "application/excel",
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  "application/vnd.oasis.opendocument.spreadsheet",
+  "text/csv",
+  "application/csv",
+  "text/plain",
+  "application/rtf",
+  "text/rtf",
 ]);
 
-const ALLOWED_EXTENSIONS = [".pdf", ".jpg", ".jpeg", ".png", ".doc", ".docx"];
+const ALLOWED_EXTENSIONS = [
+  ".pdf",
+  ".jpg",
+  ".jpeg",
+  ".png",
+  ".doc",
+  ".docx",
+  ".xls",
+  ".xlsx",
+  ".ods",
+  ".csv",
+  ".txt",
+  ".rtf",
+];
 
 export function validateUploadMime(mime: string, filename: string): void {
   const lower = mime.toLowerCase();
@@ -60,7 +85,5 @@ export function validateUploadMime(mime: string, filename: string): void {
   if (ALLOWED_EXTENSIONS.some((allowed) => ext.endsWith(allowed))) {
     return;
   }
-  throw new ValidationError(
-    "Unsupported file type. Allowed: PDF, DOC, DOCX, JPG, JPEG, PNG"
-  );
+  throw new ValidationError(`Unsupported file type. Allowed: ${SUPPORTED_FORMATS_ERROR_LABEL}`);
 }

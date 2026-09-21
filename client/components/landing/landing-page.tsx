@@ -48,7 +48,7 @@ const FinalCta = dynamic(
 
 export function LandingPage() {
   return (
-    <div className="min-h-dvh overflow-y-auto bg-background">
+    <div className="min-h-dvh overflow-y-auto scroll-smooth bg-background">
       <LandingAuthRedirectDeferred />
       <LandingNavbar />
       <main>

@@ -1,6 +1,6 @@
 # Document conversion integration fixtures
 
-Place `sample.doc` and `sample.docx` here for LibreOffice integration tests.
+Place `sample.doc`, `sample.docx`, `sample.xls`, and `sample.xlsx` here for LibreOffice integration tests.
 
 Run integration tests with:
 

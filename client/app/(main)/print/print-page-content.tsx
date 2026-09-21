@@ -45,7 +45,7 @@ import {
   getUnsupportedFileMessage,
   isPdf,
   isSupportedImage,
-  isWordDocument,
+  isServerConvertedUpload,
 } from "@/lib/supported-file-types";
 import type {
   PaymentCreateResponse,
@@ -432,7 +432,7 @@ export default function PrintPageContent() {
               `${raw.name} is too large (${formatFileSize(raw.size)}). Maximum size is 50 MB.`
             );
           }
-          if (isWordDocument(raw)) {
+          if (isServerConvertedUpload(raw)) {
             const key = draftFileKey(raw);
             if (existingKeys.has(key)) continue;
             existingKeys.add(key);
@@ -500,7 +500,7 @@ export default function PrintPageContent() {
         let fileToUpload = d.file;
         if (isSupportedImage(fileToUpload)) {
           fileToUpload = await imageFileToPdf(fileToUpload);
-        } else if (!isPdf(fileToUpload) && !isWordDocument(fileToUpload)) {
+        } else if (!isPdf(fileToUpload) && !isServerConvertedUpload(fileToUpload)) {
           throw new Error(getUnsupportedFileMessage());
         }
         const saved = await uploadFile(
@@ -509,7 +509,7 @@ export default function PrintPageContent() {
           progress,
           d.displayName
         );
-        const file = isWordDocument(d.file) ? await fileFromSaved(saved) : d.file;
+        const file = isServerConvertedUpload(d.file) ? await fileFromSaved(saved) : d.file;
         const selectedPages =
           d.selectedPages.size > 0 ? d.selectedPages : allPages(saved.page_count);
         uploaded.push({

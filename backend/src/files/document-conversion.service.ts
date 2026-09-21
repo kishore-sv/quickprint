@@ -9,11 +9,19 @@ import { logger } from "../utils/logger";
 
 export type WordDocumentFormat = "doc" | "docx";
 
+export type LibreOfficeFormat =
+  | WordDocumentFormat
+  | "xls"
+  | "xlsx"
+  | "ods"
+  | "csv"
+  | "rtf";
+
 /**
- * DOC/DOCX → PDF conversion via LibreOffice headless.
+ * Office documents → PDF conversion via LibreOffice headless.
  */
 export class DocumentConversionService {
-  async convertWordToPdf(content: Buffer, format: WordDocumentFormat): Promise<Buffer> {
+  async convertOfficeToPdf(content: Buffer, format: LibreOfficeFormat): Promise<Buffer> {
     const workDir = await mkdtemp(join(tmpdir(), "quickprint-doc-"));
     const id = randomUUID();
     const inputName = `${id}.${format}`;
@@ -71,6 +79,10 @@ export class DocumentConversionService {
     } finally {
       await rm(workDir, { recursive: true, force: true }).catch(() => undefined);
     }
+  }
+
+  async convertWordToPdf(content: Buffer, format: WordDocumentFormat): Promise<Buffer> {
+    return this.convertOfficeToPdf(content, format);
   }
 
   /** @deprecated Use convertWordToPdf */

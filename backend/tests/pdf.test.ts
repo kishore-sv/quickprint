@@ -41,12 +41,27 @@ describe("pdf utils", () => {
     ).not.toThrow();
     expect(() => validateUploadMime("image/jpeg", "a.jpg")).not.toThrow();
     expect(() => validateUploadMime("image/png", "a.png")).not.toThrow();
+    expect(() => validateUploadMime("application/vnd.ms-excel", "a.xls")).not.toThrow();
+    expect(() =>
+      validateUploadMime(
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        "a.xlsx"
+      )
+    ).not.toThrow();
+    expect(() =>
+      validateUploadMime("application/vnd.oasis.opendocument.spreadsheet", "a.ods")
+    ).not.toThrow();
+    expect(() => validateUploadMime("text/csv", "a.csv")).not.toThrow();
+    expect(() => validateUploadMime("text/plain", "a.txt")).not.toThrow();
+    expect(() => validateUploadMime("application/rtf", "a.rtf")).not.toThrow();
   });
 
   test("allows supported extensions with generic mime", () => {
     expect(() => validateUploadMime("application/octet-stream", "scan.jpeg")).not.toThrow();
     expect(() => validateUploadMime("application/octet-stream", "notes.doc")).not.toThrow();
     expect(() => validateUploadMime("application/octet-stream", "notes.docx")).not.toThrow();
+    expect(() => validateUploadMime("application/octet-stream", "sheet.xlsx")).not.toThrow();
+    expect(() => validateUploadMime("application/octet-stream", "notes.txt")).not.toThrow();
   });
 
   test("rejects unsupported formats", () => {
@@ -54,17 +69,11 @@ describe("pdf utils", () => {
       ["image/webp", "photo.webp"],
       ["image/heic", "photo.heic"],
       ["image/gif", "anim.gif"],
-      ["application/vnd.ms-excel", "sheet.xls"],
-      [
-        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        "sheet.xlsx",
-      ],
       ["application/vnd.ms-powerpoint", "slides.ppt"],
       [
         "application/vnd.openxmlformats-officedocument.presentationml.presentation",
         "slides.pptx",
       ],
-      ["text/plain", "notes.txt"],
       ["application/zip", "archive.zip"],
       ["application/x-msdownload", "virus.exe"],
     ] as const;

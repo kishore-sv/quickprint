@@ -36,7 +36,7 @@ function makeSuccessfulSpawn(pdf: Buffer): SpawnHandler {
     queueMicrotask(async () => {
       const outDir = args[4];
       const inputPath = args[5];
-      const base = inputPath.split("/").pop()!.replace(/\.(doc|docx)$/i, "");
+      const base = inputPath.split("/").pop()!.replace(/\.[^.]+$/i, "");
       await writeFile(join(outDir, `${base}.pdf`), pdf);
       child.emit("close", 0);
     });
@@ -58,6 +58,15 @@ describe("DocumentConversionService", () => {
 
     const docx = Buffer.from("PK\x03\x04word/document.xml[Content_Types].xml");
     const result = await service.convertWordToPdf(docx, "docx");
+    expect(result.subarray(0, 5).toString()).toBe("%PDF-");
+  });
+
+  test("converts XLSX buffer to PDF using LibreOffice args", async () => {
+    const pdf = minimalPdfBuffer();
+    spawnHandler = makeSuccessfulSpawn(pdf);
+
+    const xlsx = Buffer.from("PK\x03\x04xl/workbook.xml[Content_Types].xml");
+    const result = await service.convertOfficeToPdf(xlsx, "xlsx");
     expect(result.subarray(0, 5).toString()).toBe("%PDF-");
   });
 
@@ -122,7 +131,7 @@ describe("DocumentConversionService", () => {
       child.kill = () => undefined;
       queueMicrotask(async () => {
         const inputPath = args[5];
-        const base = inputPath.split("/").pop()!.replace(/\.docx$/i, "");
+        const base = inputPath.split("/").pop()!.replace(/\.[^.]+$/i, "");
         await writeFile(join(capturedOutDir!, `${base}.pdf`), pdf);
         child.emit("close", 0);
       });

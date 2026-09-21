@@ -41,6 +41,8 @@ QuickPrint accepts these upload formats and stores everything as **PDF**:
 | PNG | Client converts to PDF before upload |
 | DOC | Backend converts to PDF via LibreOffice headless |
 | DOCX | Backend converts to PDF via LibreOffice headless |
+| XLS / XLSX / ODS / CSV / RTF | Backend converts to PDF via LibreOffice headless |
+| TXT | Backend converts to printable A4 PDF (pdf-lib) |
 
 The Raspberry Pi agent and CUPS always receive PDF only.
 
