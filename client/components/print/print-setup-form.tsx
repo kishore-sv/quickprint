@@ -466,74 +466,76 @@ export function PrintSetupForm({
           </span>
         </div>
 
-        {/* <div className="-mx-4 min-w-0 w-auto overflow-x-auto px-4 pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [touch-action:pan-x] [&::-webkit-scrollbar]:hidden">
-          <div className="flex w-max min-w-full gap-3">
-          {thumbsLoading &&
-            Array.from({ length: Math.min(pageCount, 4) }).map((_, i) => (
-              <Skeleton key={i} className="h-[148px] w-[108px] shrink-0 rounded-xl" />
-            ))}
-          {!thumbsLoading &&
-            Array.from({ length: pageCount }, (_, i) => i + 1).map((page) => {
-              const active = selectedPages.has(page);
-              return (
-                <div
-                  key={page}
-                  role="button"
-                  tabIndex={0}
-                  onClick={() => togglePage(page)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" || e.key === " ") {
-                      e.preventDefault();
-                      togglePage(page);
-                    }
-                  }}
-                  className={cn(
-                    "relative shrink-0 cursor-pointer overflow-hidden rounded-xl border-2 bg-muted/30 text-left transition-colors",
-                    active ? "border-primary" : "border-transparent opacity-70"
-                  )}
-                >
-                  {active && (
-                    <span
-                      className="absolute left-2 top-2 z-10 flex size-6 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-sm"
-                      aria-hidden
-                    >
-                      <Check className="size-3.5" strokeWidth={3} />
-                    </span>
-                  )}
-                  {thumbnails[page] ? (
-                    <img
-                      src={thumbnails[page]}
-                      alt={`Page ${page}`}
-                      className="h-[140px] w-[100px] bg-white object-contain object-top"
-                    />
-                  ) : (
-                    <div className="flex h-[140px] w-[100px] items-center justify-center bg-muted">
-                      <Spinner className="size-5" />
-                    </div>
-                  )}
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    size="icon-sm"
-                    className="absolute bottom-2 left-2 size-7 rounded-full bg-background/90 shadow-sm"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      void openPreview(page);
+        <div
+          className="min-h-[148px] max-h-[min(50vh,320px)] min-w-0 overflow-x-hidden overflow-y-auto overscroll-y-contain rounded-xl border border-border/60 bg-muted/20 p-3 [-webkit-overflow-scrolling:touch] [touch-action:pan-y]"
+        >
+          <div className="flex flex-wrap gap-3">
+            {thumbsLoading &&
+              Array.from({ length: Math.min(pageCount, 4) }).map((_, i) => (
+                <Skeleton key={i} className="h-[148px] w-[108px] shrink-0 rounded-xl" />
+              ))}
+            {!thumbsLoading &&
+              Array.from({ length: pageCount }, (_, i) => i + 1).map((page) => {
+                const active = selectedPages.has(page);
+                return (
+                  <div
+                    key={page}
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => togglePage(page)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        togglePage(page);
+                      }
                     }}
-                    aria-label={`Preview page ${page}`}
+                    className={cn(
+                      "relative shrink-0 cursor-pointer overflow-hidden rounded-xl border-2 bg-muted/30 text-left transition-colors",
+                      active ? "border-primary" : "border-transparent opacity-70"
+                    )}
                   >
-                    <Search className="size-3.5" />
-                  </Button>
-                  <span
-                    className="absolute bottom-2 right-2 flex size-6 items-center justify-center rounded-full bg-background/90 text-xs font-medium shadow-sm"
-                  >
-                    {page}
-                  </span>
-                </div>
-              );
-            })}
+                    {active && (
+                      <span
+                        className="absolute left-2 top-2 z-10 flex size-6 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-sm"
+                        aria-hidden
+                      >
+                        <Check className="size-3.5" strokeWidth={3} />
+                      </span>
+                    )}
+                    {thumbnails[page] ? (
+                      <img
+                        src={thumbnails[page]}
+                        alt={`Page ${page}`}
+                        className="h-[140px] w-[100px] bg-white object-contain object-top"
+                      />
+                    ) : (
+                      <div className="flex h-[140px] w-[100px] items-center justify-center bg-muted">
+                        <Spinner className="size-5" />
+                      </div>
+                    )}
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      size="icon-sm"
+                      className="absolute bottom-2 left-2 size-7 rounded-full bg-background/90 shadow-sm"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        void openPreview(page);
+                      }}
+                      aria-label={`Preview page ${page}`}
+                    >
+                      <Search className="size-3.5" />
+                    </Button>
+                    <span
+                      className="absolute bottom-2 right-2 flex size-6 items-center justify-center rounded-full bg-background/90 text-xs font-medium shadow-sm"
+                    >
+                      {page}
+                    </span>
+                  </div>
+                );
+              })}
           </div>
-        </div> */}
+        </div>
       </section>
 
       <section className="min-w-0 space-y-3">
